@@ -29,7 +29,7 @@
 
 #include "renderer.h"
 #include "edge_detector.h"
-#include "textbox.h"
+#include <mxgui/textbox.h>
 #include "version.h"
 #include "drivers/misc.h"
 #include "images/batt100icon.h"
@@ -47,6 +47,8 @@
 #include <mxgui/display.h>
 #include <memory>
 #include <mutex>
+
+#include <util/version.h>
 
 #ifndef _MIOSIX
 #define sniprintf snprintf
@@ -74,7 +76,7 @@ public:
 
     BatteryLevel checkBatteryLevel();
 
-    bool checkUSBConnected();
+    //bool checkUSBConnected();
 
     void setPause(bool pause);
 
@@ -303,8 +305,8 @@ void ApplicationUI<IOHandler>::drawUSBConnectionIndicator(mxgui::DrawingContext&
 {
     const mxgui::Point p0(80,1);
     const mxgui::Point p1(80+5,1+10);
-    if (ioHandler.checkUSBConnected()) dc.drawImage(p0,usbicon);
-    else dc.clear(p0,p1,mxgui::black);
+    /*if (ioHandler.checkUSBConnected()) dc.drawImage(p0,usbicon);
+    else dc.clear(p0,p1,mxgui::black);*/
 }
 
 template<class IOHandler>
@@ -379,10 +381,11 @@ void ApplicationUI<IOHandler>::_drawMenuEntry(mxgui::DrawingContext& dc, int i,
     else dc.setTextColor(std::make_pair(unselectedFGColor,unselectedBGColor));
     if (value)
     {
-        TextBox::draw(dc, mxgui::Point(0,top), mxgui::Point(74,top+fontHeight-1), label, 0, 0, 3, 0);
-        TextBox::draw(dc, mxgui::Point(75,top), mxgui::Point(dc.getWidth()-1,top+fontHeight-1), value, 0, 0, 0, 3);
+        //! TODO CHECK
+        TextBox::draw(dc, mxgui::Point(0,top), mxgui::Point(74,top+fontHeight-1), label, 0, 0, 0, 3, 0);
+        TextBox::draw(dc, mxgui::Point(75,top), mxgui::Point(dc.getWidth()-1,top+fontHeight-1), value, 0, 0, 0, 0, 3);
     } else {
-        TextBox::draw(dc, mxgui::Point(0,top), mxgui::Point(dc.getWidth()-1,top+fontHeight-1), label, 0, 0, 3, 3);
+        TextBox::draw(dc, mxgui::Point(0,top), mxgui::Point(dc.getWidth()-1,top+fontHeight-1), label, 0, 0, 0, 3, 3);
     }
 }
 

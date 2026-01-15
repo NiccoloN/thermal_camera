@@ -1,5 +1,6 @@
 /***************************************************************************
  *   Copyright (C) 2015-2021 by Terraneo Federico                          *
+ *   Copyright (C) 2024 by Daniele Cattaneo                                *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -27,6 +28,8 @@
 
 #pragma once
 
+#include "interfaces/gpio.h"
+
 /**
  * \internal
  * Versioning for board_settings.h for out of git tree projects
@@ -46,12 +49,26 @@ namespace miosix {
 const unsigned int MAIN_STACK_SIZE=4*1024;
 
 /// Serial port
+/// Serial ports 1 to 8 are available
 const unsigned int defaultSerial=1;
-const unsigned int defaultSerialSpeed=19200;
+const unsigned int defaultSerialSpeed=115200;
 const bool defaultSerialFlowctrl=false;
-#define SERIAL_1_DMA
-//#define SERIAL_2_DMA //Serial 2 can't be used (GPIO conflict), so no DMA
-//#define SERIAL_3_DMA //Serial 3 can't be used (GPIO conflict), so no DMA
+const bool defaultSerialDma=true;
+// Default serial 1 pins (uncomment when using serial 1)
+using defaultSerialTxPin = Gpio<PA,9>;
+using defaultSerialRxPin = Gpio<PA,10>;
+using defaultSerialRtsPin = Gpio<PA,12>;
+using defaultSerialCtsPin = Gpio<PA,11>;
+// Default serial 2 pins (uncomment when using serial 2)
+//using defaultSerialTxPin = Gpio<PA,2>;
+//using defaultSerialRxPin = Gpio<PA,3>;
+//using defaultSerialRtsPin = Gpio<PA,1>;
+//using defaultSerialCtsPin = Gpio<PA,0>;
+// Default serial 3 pins (uncomment when using serial 3)
+//using defaultSerialTxPin = Gpio<PB,10>;
+//using defaultSerialRxPin = Gpio<PB,11>;
+//using defaultSerialRtsPin = Gpio<PB,14>;
+//using defaultSerialCtsPin = Gpio<PB,13>;
 
 //SD card driver
 static const unsigned char sdVoltage=33; //Board powered @ 3.3V

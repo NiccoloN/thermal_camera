@@ -57,7 +57,8 @@ using namespace mxgui;
 Application::Application(Display& display)
     : display(display), ui(*this, display, ButtonState(1^up_btn::value(),on_btn::value())),
       i2c(make_unique<I2C1Master>(sen_sda::getPin(),sen_scl::getPin(),1000)),
-      sensor(make_unique<MLX90640>(i2c.get())), usb(make_unique<USBCDC>(Priority()))
+      sensor(make_unique<MLX90640>(i2c.get()))
+      //usb(make_unique<USBCDC>(Priority()))
 {
     loadOptions(&ui.options,sizeof(ui.options));
     if(sensor->setRefresh(refreshFromInt(ui.options.frameRate))==false)
@@ -68,9 +69,9 @@ Application::Application(Display& display)
 void Application::run()
 {
     //High priority for sensor read, prevents I2C reads from starving
-    sensorThread = Thread::create(Application::sensorThreadMainTramp, 2048U, Priority(MAIN_PRIORITY+1), static_cast<void*>(this), Thread::JOINABLE);
+    sensorThread = Thread::create(Application::sensorThreadMainTramp, 2048U, Priority(DEFAULT_PRIORITY+1), static_cast<void*>(this), Thread::JOINABLE);
     //Low priority for processing, prevents display writes from starving
-    Thread *processThread = Thread::create(Application::processThreadMainTramp, 2048U, Priority(MAIN_PRIORITY-1), static_cast<void*>(this), Thread::JOINABLE);
+    Thread *processThread = Thread::create(Application::processThreadMainTramp, 2048U, Priority(DEFAULT_PRIORITY-1), static_cast<void*>(this), Thread::JOINABLE);
 
     //Drop first frame before starting the render thread
     MLX90640Frame *processedFrame=nullptr;
@@ -79,8 +80,8 @@ void Application::run()
 
     Thread *renderThread = Thread::create(Application::renderThreadMainTramp, 2048U, Priority(), static_cast<void*>(this), Thread::JOINABLE);
 
-    Thread *usbInteractiveThread = Thread::create(Application::usbThreadMainTramp, 2048U, Priority(), static_cast<void*>(this), Thread::JOINABLE);
-    Thread *usbOutputThread = Thread::create(Application::usbFrameOutputThreadMainTramp, 2048U, Priority(), static_cast<void*>(this), Thread::JOINABLE);
+    //Thread *usbInteractiveThread = Thread::create(Application::usbThreadMainTramp, 2048U, Priority(), static_cast<void*>(this), Thread::JOINABLE);
+    //Thread *usbOutputThread = Thread::create(Application::usbFrameOutputThreadMainTramp, 2048U, Priority(), static_cast<void*>(this), Thread::JOINABLE);
     
     ui.lifecycle = UI::Ready;
     while (ui.lifecycle != UI::Quit) {
@@ -91,7 +92,7 @@ void Application::run()
         Thread::sleep(80);
     }
 
-    usb->prepareShutdown();
+    //usb->prepareShutdown();
     
     sensorThread->wakeup(); //Prevents deadlock if acquisition is paused
     sensorThread->join();
@@ -102,11 +103,11 @@ void Application::run()
     if(processedFrameQueue.isEmpty()) processedFrameQueue.put(nullptr); //Prevents deadlock
     renderThread->join();
     iprintf("renderThread joined\n");
-    if(usbOutputQueue.isEmpty()) usbOutputQueue.put(nullptr);
+    /*if(usbOutputQueue.isEmpty()) usbOutputQueue.put(nullptr);
     usbOutputThread->join();
     iprintf("usbOutputThread joined\n");
     usbInteractiveThread->join();
-    iprintf("usbInteractiveThread joined\n");
+    iprintf("usbInteractiveThread joined\n");*/
 }
 
 ButtonState Application::checkButtons()
@@ -121,10 +122,10 @@ BatteryLevel Application::checkBatteryLevel()
     return batteryLevel(prevBatteryVoltage);
 }
 
-bool Application::checkUSBConnected()
+/*bool Application::checkUSBConnected()
 {
     return usb->connected();
-}
+}*/
 
 void Application::setPause(bool pause)
 {
@@ -161,7 +162,7 @@ void Application::sensorThreadMain()
             if(success==false) puts("Error reading frame");
         } while(success==false);
         {
-            FastInterruptDisableLock dLock;
+            FastGlobalIrqLock dLock;
             success=rawFrameQueue.IRQput(rawFrame); //Nonblocking put
         }
         if(success==false)
@@ -192,7 +193,7 @@ void Application::processThreadMain()
         auto *processedFrame=new MLX90640Frame;
         sensor->processFrame(rawFrame,processedFrame,ui.options.emissivity);
         processedFrameQueue.put(processedFrame);
-        usbOutputQueue.put(rawFrame);
+        //usbOutputQueue.put(rawFrame);
         //auto t2=getTime();
         //iprintf("process = %lld\n",t2-t1);
     }
@@ -218,11 +219,11 @@ void Application::renderThreadMain()
             MemoryProfiling::getAbsoluteFreeStack());
 }
 
-void *Application::usbThreadMainTramp(void *p)
+/*void *Application::usbThreadMainTramp(void *p)
 {
     static_cast<Application *>(p)->usbThreadMain();
     return nullptr;
-}
+}*/
 
 char *hexDump(const uint8_t *bytes, int size, char *output)
 {
@@ -235,7 +236,7 @@ char *hexDump(const uint8_t *bytes, int size, char *output)
     return output;
 }
 
-void Application::usbThreadMain()
+/*void Application::usbThreadMain()
 {
     while (ui.lifecycle != UI::Quit) {
         char buf[80];
@@ -261,9 +262,9 @@ void Application::usbThreadMain()
     }
     iprintf("usbInteractiveThread min free stack %d\n",
             MemoryProfiling::getAbsoluteFreeStack());
-}
+}*/
 
-void *Application::usbFrameOutputThreadMainTramp(void *p)
+/*void *Application::usbFrameOutputThreadMainTramp(void *p)
 {
     static_cast<Application *>(p)->usbFrameOutputThreadMain();
     return nullptr;
@@ -303,3 +304,4 @@ void Application::usbFrameOutputThreadMain()
     iprintf("usbOutputThread min free stack %d\n",
             MemoryProfiling::getAbsoluteFreeStack());
 }
+*/

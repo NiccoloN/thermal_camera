@@ -53,10 +53,12 @@ void *profilerMain(void *)
 
 int main()
 {
+    iprintf("Hello world!\n");
+
     initializeBoard();
     
     #ifdef WITH_CPU_TIME_COUNTER
-    Thread *profiler = Thread::create(profilerMain, 2048U, Priority(0), nullptr, 0);
+    Thread *profiler = Thread::create(profilerMain, 2048U, Priority(0), nullptr, Thread::DETACHED);
     #endif
 
     auto& display=DisplayManager::instance().getDisplay();

@@ -27,6 +27,8 @@
 
 #pragma once
 
+#include "interfaces/gpio.h"
+
 /**
  * \internal
  * Versioning for board_settings.h for out of git tree projects
@@ -41,19 +43,35 @@ namespace miosix {
  */
 
 /// Size of stack for main().
-/// The C standard library is stack-heavy (iprintf requires 1KB) 
+/// The C standard library is stack-heavy (iprintf requires 1KB)
 const unsigned int MAIN_STACK_SIZE=4*1024;
 
 /// Serial port
-//This board only exposes USART3, without flow control, connected to an UART/USB
+/// Serial ports 1 to 8 are available
+const unsigned int defaultSerial=3;
 const unsigned int defaultSerialSpeed=115200;
-// #define SERIAL_1_DMA
-// #define SERIAL_2_DMA
-#define SERIAL_3_DMA
+const bool defaultSerialFlowctrl=false;
+const bool defaultSerialDma=true;
+// Default serial 1 pins (uncomment when using serial 1)
+//using defaultSerialTxPin = Gpio<PA,9>;
+//using defaultSerialRxPin = Gpio<PA,10>;
+//using defaultSerialRtsPin = Gpio<PA,12>;
+//using defaultSerialCtsPin = Gpio<PA,11>;
+// Default serial 2 pins (uncomment when using serial 2)
+//using defaultSerialTxPin = Gpio<PA,2>;
+//using defaultSerialRxPin = Gpio<PA,3>;
+//using defaultSerialRtsPin = Gpio<PA,1>;
+//using defaultSerialCtsPin = Gpio<PA,0>;
+// Default serial 3 pins (uncomment when using serial 3)
+using defaultSerialTxPin = Gpio<PD,8>;
+using defaultSerialRxPin = Gpio<PD,9>;
+using defaultSerialRtsPin = Gpio<PD,12>;
+using defaultSerialCtsPin = Gpio<PD,11>;
 
 //SD card driver
 static const unsigned char sdVoltage=33; //Board powered @ 3.3V
 #define SD_ONE_BIT_DATABUS //For now we'll use 1 bit bus
+#define SD_SDMMC 1 //Select either SDMMC1 or SDMMC2
 
 /**
  * \}

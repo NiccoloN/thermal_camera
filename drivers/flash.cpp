@@ -28,31 +28,10 @@
 #include <drivers/flash.h>
 #include <drivers/hwmapping.h>
 #include <miosix.h>
-#include <kernel/scheduler/scheduler.h>
 #include <interfaces/delays.h>
 
 using namespace std;
 using namespace miosix;
-
-/**
- * DMA RX end of transfer
- */
-void __attribute__((naked)) DMA1_Stream3_IRQHandler()
-{
-    saveContext();
-    asm volatile("bl _Z20SPI2rxDmaHandlerImplv");
-    restoreContext();
-}
-
-/**
- * DMA TX end of transfer
- */
-void __attribute__((naked)) DMA1_Stream4_IRQHandler()
-{
-    saveContext();
-    asm volatile("bl _Z20SPI2txDmaHandlerImplv");
-    restoreContext();
-}
 
 static Thread *waiting;
 static bool error;
@@ -60,30 +39,26 @@ static bool error;
 /**
  * DMA RX end of transfer actual implementation
  */
-void __attribute__((used)) SPI2rxDmaHandlerImpl()
+void SPI2rxDmaHandlerImpl()
 {
     if(DMA1->LISR & (DMA_LISR_TEIF3 | DMA_LISR_DMEIF3)) error=true;
     DMA1->LIFCR=DMA_LIFCR_CTCIF3
               | DMA_LIFCR_CTEIF3
               | DMA_LIFCR_CDMEIF3;
     waiting->IRQwakeup();
-    if(waiting->IRQgetPriority()>Thread::IRQgetCurrentThread()->IRQgetPriority())
-        Scheduler::IRQfindNextThread();
     waiting=nullptr;
 }
 
 /**
  * DMA TX end of transfer actual implementation
  */
-void __attribute__((used)) SPI2txDmaHandlerImpl()
+void SPI2txDmaHandlerImpl()
 {
     if(DMA1->HISR & (DMA_HISR_TEIF4 | DMA_HISR_DMEIF4)) error=true;
     DMA1->HIFCR=DMA_HIFCR_CTCIF4
               | DMA_HIFCR_CTEIF4
               | DMA_HIFCR_CDMEIF4;
     waiting->IRQwakeup();
-    if(waiting->IRQgetPriority()>Thread::IRQgetCurrentThread()->IRQgetPriority())
-        Scheduler::IRQfindNextThread();
     waiting=nullptr;
 }
 
@@ -181,14 +156,10 @@ bool Flash::write(unsigned int addr, const void *data, int size)
                 | DMA_SxCR_EN;     //Start DMA
     
     {
-        FastInterruptDisableLock dLock;
+        FastGlobalIrqLock dLock;
         while(waiting!=nullptr)
         {
-            waiting->IRQwait();
-            {
-                FastInterruptEnableLock eLock(dLock);
-                Thread::yield();
-            }
+            Thread::IRQglobalIrqUnlockAndWait(dLock);
         }
     }
                 
@@ -264,14 +235,10 @@ bool Flash::read(unsigned int addr, void *data, int size)
             | SPI_CR1_SPE;
         
     {
-        FastInterruptDisableLock dLock;
+        FastGlobalIrqLock dLock;
         while(waiting!=nullptr)
         {
-            waiting->IRQwait();
-            {
-                FastInterruptEnableLock eLock(dLock);
-                Thread::yield();
-            }
+            Thread::IRQglobalIrqUnlockAndWait(dLock);
         }
     }
 
@@ -313,7 +280,7 @@ unsigned short Flash::readStatus(int reg)
 Flash::Flash()
 {
     {
-        FastInterruptDisableLock dLock;
+        GlobalIrqLock dLock;
         flash_mosi::mode(Mode::ALTERNATE);
         flash_mosi::alternateFunction(5);
         flash_miso::mode(Mode::ALTERNATE);
@@ -329,6 +296,10 @@ Flash::Flash()
                 | SPI_CR1_SSI  //Hardware cs internally tied high
                 | SPI_CR1_MSTR //Master mode
                 | SPI_CR1_SPE; //SPI enabled
+        
+        IRQregisterIrq(dLock, DMA1_Stream3_IRQn, SPI2rxDmaHandlerImpl);
+        IRQregisterIrq(dLock, DMA1_Stream4_IRQn, SPI2txDmaHandlerImpl);
+
     }
     iprintf("FLASH\nstatus1=0x%x\nstatus2=0x%x\n",readStatus(1),readStatus(2));
 }

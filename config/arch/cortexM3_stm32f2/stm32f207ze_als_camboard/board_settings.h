@@ -27,6 +27,8 @@
 
 #pragma once
 
+#include "interfaces/gpio.h"
+
 /**
  * \internal
  * Versioning for board_settings.h for out of git tree projects
@@ -47,11 +49,25 @@ const unsigned int MAIN_STACK_SIZE=4*1024;
 
 /// Serial port
 const unsigned int defaultSerial=1;
-const unsigned int defaultSerialSpeed=19200;
+const unsigned int defaultSerialSpeed=115200;
 const bool defaultSerialFlowctrl=false;
-//#define SERIAL_1_DMA //TODO: DCMI driver conflicts, buf can be fixed
-//#define SERIAL_2_DMA //Serial 2 is not used, so not enabling DMA
-//#define SERIAL_3_DMA //Serial 3 is not used, so not enabling DMA
+//TODO: DCMI driver conflicts with DMA, but can be fixed
+const bool defaultSerialDma=false;
+// Default serial 1 pins (uncomment when using serial 1)
+using defaultSerialTxPin = Gpio<PA,9>;
+using defaultSerialRxPin = Gpio<PA,10>;
+using defaultSerialRtsPin = Gpio<PA,12>;
+using defaultSerialCtsPin = Gpio<PA,11>;
+// Default serial 2 pins (uncomment when using serial 2)
+//using defaultSerialTxPin = Gpio<PA,2>;
+//using defaultSerialRxPin = Gpio<PA,3>;
+//using defaultSerialRtsPin = Gpio<PA,1>;
+//using defaultSerialCtsPin = Gpio<PA,0>;
+// Default serial 3 pins (uncomment when using serial 3)
+//using defaultSerialTxPin = Gpio<PB,10>;
+//using defaultSerialRxPin = Gpio<PB,11>;
+//using defaultSerialRtsPin = Gpio<PB,14>;
+//using defaultSerialCtsPin = Gpio<PB,13>;
 
 ///\def STDOUT_REDIRECTED_TO_DCC
 ///If defined, stdout is redirected to the debug communication channel, and

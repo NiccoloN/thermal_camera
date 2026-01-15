@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "util/version.h"
+#include "interfaces/gpio.h"
 
 /**
  * \internal
@@ -43,20 +43,36 @@ namespace miosix {
  */
 
 /// Size of stack for main().
-/// The C standard library is stack-heavy (iprintf requires 1KB) but the
-/// STM32F407VG only has 192KB of RAM so there is room for a big 4K stack.
+/// The C standard library is stack-heavy (iprintf requires 1KB) and the
+/// STM32L4R9 has 640KB of RAM -- which is notoriously enough for everybody --
+/// so there is room for a big 4K stack.
 const unsigned int MAIN_STACK_SIZE=4*1024;
 
 /// Serial port
+/// Serial ports 1 to 5 are available
 const unsigned int defaultSerial=2;
-const unsigned int defaultSerialSpeed=19200;
-//#define SERIAL_1_DMA
-//#define SERIAL_2_DMA
-//#define SERIAL_3_DMA
+const unsigned int defaultSerialSpeed=115200;
+const bool defaultSerialFlowctrl=false;
+const bool defaultSerialDma=true;
+// Default serial 1 pins (uncomment when using serial 1)
+//using defaultSerialTxPin = Gpio<PA,9>;
+//using defaultSerialRxPin = Gpio<PA,10>;
+//using defaultSerialRtsPin = Gpio<PA,12>;
+//using defaultSerialCtsPin = Gpio<PA,11>;
+// Default serial 2 pins (uncomment when using serial 2)
+using defaultSerialTxPin = Gpio<PD,5>;
+using defaultSerialRxPin = Gpio<PD,6>;
+using defaultSerialRtsPin = Gpio<PD,4>;
+using defaultSerialCtsPin = Gpio<PA,0>; //actually connected to DAC1_OUT1
+// Default serial 3 pins (uncomment when using serial 3)
+//using defaultSerialTxPin = Gpio<PD,8>;
+//using defaultSerialRxPin = Gpio<PD,9>;
+//using defaultSerialRtsPin = Gpio<PB,1>;
+//using defaultSerialCtsPin = Gpio<PB,13>;
 
 //SD card driver
 static const unsigned char sdVoltage=33; //Board powered @ 3.3V
-#define SD_ONE_BIT_DATABUS //Can't use 4 bit databus due to pin conflicts
+//#define SD_ONE_BIT_DATABUS //All data lines are connected
 
 /**
  * \}

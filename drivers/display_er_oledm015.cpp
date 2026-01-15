@@ -27,7 +27,6 @@
 
 #include "display_er_oledm015.h"
 #include <miosix.h>
-#include <kernel/scheduler/scheduler.h>
 #include <interfaces/endianness.h>
 #include <algorithm>
 #include <line.h>
@@ -84,21 +83,10 @@ static void spi1waitCompletion()
     unused=SPI1->SR;
 }
 
-/**
- * DMA TX end of transfer
- * NOTE: conflicts with SDIO driver but this board does not have and SD card
- */
-void __attribute__((naked)) DMA2_Stream3_IRQHandler()
-{
-    saveContext();
-    asm volatile("bl _Z20SPI1txDmaHandlerImplv");
-    restoreContext();
-}
-
 static Thread *waiting=nullptr;
 static uint32_t error;
 
-void __attribute__((used)) SPI1txDmaHandlerImpl()
+void SPI1txDmaHandlerImpl()
 {
     uint32_t lisr = DMA2->LISR;
     if(lisr & (DMA_LISR_TEIF3 | DMA_LISR_DMEIF3 | DMA_LIFCR_CFEIF3))
@@ -109,8 +97,6 @@ void __attribute__((used)) SPI1txDmaHandlerImpl()
               | DMA_LIFCR_CFEIF3;
     if (!(DMA2_Stream3->CR & DMA_SxCR_EN) || (lisr & DMA_LISR_TCIF3)) {
         waiting->IRQwakeup();
-        if(waiting->IRQgetPriority()>Thread::IRQgetCurrentThread()->IRQgetPriority())
-            Scheduler::IRQfindNextThread();
         waiting=nullptr;
     }
 }
@@ -145,14 +131,10 @@ static void spi1SendDMA(const Color *data, int size)
                    | DMA_SxCR_EN;     //Start DMA
     
     {
-        FastInterruptDisableLock dLock;
+        FastGlobalIrqLock dLock;
         while(waiting!=nullptr)
         {
-            waiting->IRQwait();
-            {
-                FastInterruptEnableLock eLock(dLock);
-                Thread::yield();
-            }
+            Thread::IRQglobalIrqUnlockAndWait(dLock);
         }
     }
     
@@ -256,12 +238,14 @@ namespace mxgui {
 DisplayErOledm015::DisplayErOledm015() : buffer(nullptr), buffer2(nullptr)
 {
     {
-        FastInterruptDisableLock dLock;
+        GlobalIrqLock dLock;
         cs::mode(Mode::OUTPUT);      cs::high();
         sck::mode(Mode::ALTERNATE);  sck::alternateFunction(5);
         mosi::mode(Mode::ALTERNATE); mosi::alternateFunction(5);
         dc::mode(Mode::OUTPUT);
         res::mode(Mode::OUTPUT);
+
+        IRQregisterIrq(dLock, DMA2_Stream3_IRQn, SPI1txDmaHandlerImpl);
 
         RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
         RCC_SYNC();

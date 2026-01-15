@@ -1,5 +1,6 @@
 /***************************************************************************
  *   Copyright (C) 2014-2021 by Terraneo Federico                          *
+ *   Copyright (C) 2024 by Daniele Cattaneo                                *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -27,6 +28,8 @@
 
 #pragma once
 
+#include "interfaces/gpio.h"
+
 /**
  * \internal
  * Versioning for board_settings.h for out of git tree projects
@@ -49,15 +52,28 @@ const unsigned int MAIN_STACK_SIZE=4*1024;
 /// Using the Serial port 3 because it is the virtual serial port available 
 /// through ST-LINK on the stm32f469i-disco board  
 const unsigned int defaultSerial=3;
-const unsigned int defaultSerialSpeed=19200;
+const unsigned int defaultSerialSpeed=115200;
 const bool defaultSerialFlowctrl=false;
-//#define SERIAL_1_DMA //Serial 1 is not used, so not enabling DMA
-//#define SERIAL_2_DMA //Serial 2 is not used, so not enabling DMA
-#define SERIAL_3_DMA
+const bool defaultSerialDma=true;
+// Default serial 1 pins (uncomment when using serial 1)
+//using defaultSerialTxPin = Gpio<PA,9>;
+//using defaultSerialRxPin = Gpio<PA,10>;
+//using defaultSerialRtsPin = Gpio<PA,12>;
+//using defaultSerialCtsPin = Gpio<PA,11>;
+// Default serial 2 pins (uncomment when using serial 2)
+//using defaultSerialTxPin = Gpio<PA,2>;
+//using defaultSerialRxPin = Gpio<PA,3>;
+//using defaultSerialRtsPin = Gpio<PA,1>;
+//using defaultSerialCtsPin = Gpio<PA,0>;
+// Default serial 3 pins (uncomment when using serial 3)
+using defaultSerialTxPin = Gpio<PB,10>;
+using defaultSerialRxPin = Gpio<PB,11>;
+using defaultSerialRtsPin = Gpio<PB,14>;
+using defaultSerialCtsPin = Gpio<PB,13>;
 
 //SD card driver
-static const unsigned char sdVoltage=30; //Board powered @ 3.0V
-#define SD_ONE_BIT_DATABUS //Can't use 4 bit databus due to pin conflicts
+static const unsigned char sdVoltage=33; //Board powered @ 3.3V
+#define SD_KEEP_CARD_SELECTED
 
 /**
  * \}

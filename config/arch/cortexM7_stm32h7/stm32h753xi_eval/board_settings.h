@@ -27,6 +27,8 @@
 
 #pragma once
 
+#include "interfaces/gpio.h"
+
 /**
  * \internal
  * Versioning for board_settings.h for out of git tree projects
@@ -46,13 +48,30 @@ const unsigned int MAIN_STACK_SIZE=4*1024;
 
 /// Serial port
 //This board only exposes USART1, without flow control
+/// Serial ports 1 to 9 are available (9 is LPUART1)
+const unsigned int defaultSerial=1;
 const unsigned int defaultSerialSpeed=115200;
-// #define SERIAL_1_DMA //TODO: serial port DMA
-// #define SERIAL_2_DMA
-// #define SERIAL_3_DMA
+const bool defaultSerialFlowctrl=false;
+const bool defaultSerialDma=true;
+// Default serial 1 pins (uncomment when using serial 1)
+using defaultSerialTxPin = Gpio<PB,14>;
+using defaultSerialRxPin = Gpio<PB,15>;
+using defaultSerialRtsPin = Gpio<PA,12>;
+using defaultSerialCtsPin = Gpio<PA,11>;
+// Default serial 2 pins (uncomment when using serial 2)
+//using defaultSerialTxPin = Gpio<PA,2>;
+//using defaultSerialRxPin = Gpio<PA,3>;
+//using defaultSerialRtsPin = Gpio<PA,1>;
+//using defaultSerialCtsPin = Gpio<PA,0>;
+// Default serial 3 pins (uncomment when using serial 3)
+//using defaultSerialTxPin = Gpio<PB,10>;
+//using defaultSerialRxPin = Gpio<PB,11>;
+//using defaultSerialRtsPin = Gpio<PB,14>;
+//using defaultSerialCtsPin = Gpio<PB,13>;
 
 //SD card driver
 static const unsigned char sdVoltage=33; //Board powered @ 3.3V
+#define SD_SDMMC 1 //Select either SDMMC1 or SDMMC2
 #define SD_ONE_BIT_DATABUS //For now we'll use 1 bit bus
 
 /**

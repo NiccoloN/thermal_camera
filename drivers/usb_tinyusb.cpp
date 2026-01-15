@@ -41,7 +41,7 @@ ConditionVariable rxAvail;
 USBCDC::USBCDC(miosix::Priority intSvcThreadPrio)
 {
     {
-        FastInterruptDisableLock dLock;
+        FastGlobalIrqLock dLock;
         RCC->AHB2ENR |= RCC_AHB2ENR_OTGFSEN;
         RCC_SYNC();
         usb_dm::alternateFunction(10);
@@ -59,7 +59,8 @@ USBCDC::USBCDC(miosix::Priority intSvcThreadPrio)
         iprintf("USB initialization error\n");
         return;
     }
-    tinyusbThread=Thread::create(USBCDC::thread,2048U,intSvcThreadPrio,nullptr,0);
+    //TODO: CHECK
+    tinyusbThread=Thread::create(USBCDC::thread,2048U,intSvcThreadPrio,nullptr,Thread::DETACHED);
     iprintf("USB initialization OK, thread %p\n",reinterpret_cast<void*>(tinyusbThread));
 }
 
