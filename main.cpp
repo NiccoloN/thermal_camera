@@ -53,7 +53,7 @@ void *profilerMain(void *)
 
 int main()
 {
-    iprintf("Hello world!\n");
+    iprintf("iprintf-o, ergo sum!\n");
 
     initializeBoard();
     
