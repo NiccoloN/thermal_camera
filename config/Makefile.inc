@@ -44,7 +44,7 @@
 #OPT_BOARD := stm32h753xi_eval
 #OPT_BOARD := stm32h723zg_nucleo
 #OPT_BOARD := stm32f407vg_thermal_test_chip
-OPT_BOARD := stm32f205_generic
+#OPT_BOARD := stm32f205_generic
 #OPT_BOARD := stm32f103xb_generic
 #OPT_BOARD := stm32f072rb_stm32f0discovery
 #OPT_BOARD := stm32f100xb_generic
@@ -61,7 +61,7 @@ OPT_BOARD := stm32f205_generic
 #OPT_BOARD := stm32l053r8_nucleo
 #OPT_BOARD := stm32f030r8_stm32f0discovery
 #OPT_BOARD := stm32f765ii_marco_ram_board
-#OPT_BOARD := rp2040_raspberry_pi_pico
+OPT_BOARD := rp2040_raspberry_pi_pico
 #OPT_BOARD := stm32h755zi_nucleo
 #OPT_BOARD := stm32l152re_nucleo
 #OPT_BOARD := stm32l010rb_nucleo

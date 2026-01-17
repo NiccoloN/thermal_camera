@@ -12,11 +12,12 @@ include $(KPATH)/Makefile.kcommon
 ## List here your source files (both .s, .c and .cpp)
 ##
 SRC :=                                             \
-main.cpp application.cpp renderer.cpp colormap.cpp \
+main.cpp \
+application.cpp renderer.cpp colormap.cpp \
 version.cpp                            \
 drivers/display_er_oledm015.cpp drivers/misc.cpp   \
 drivers/mlx90640.cpp drivers/MLX90640_API.cpp      \
-drivers/flash.cpp drivers/options_save.cpp         \
+drivers/options_save.cpp         \
 # drivers/usb_tinyusb.cpp
 
 IMG :=  \

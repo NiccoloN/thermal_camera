@@ -29,7 +29,7 @@
 #include <cassert>
 #include <memory>
 #include <drivers/options_save.h>
-#include <drivers/flash.h>
+// #include <drivers/flash.h>
 #include <util/crc16.h>
 #include <util/util.h>
 
@@ -45,7 +45,7 @@ struct Header
 
 void loadOptions(void *options, int optionsSize)
 {
-    puts("loadOptions");
+    /*puts("loadOptions");
     auto& flash=Flash::instance();
 
     unsigned int size=optionsSize+sizeof(Header);
@@ -79,12 +79,12 @@ void loadOptions(void *options, int optionsSize)
         memcpy(options,buffer.get()+sizeof(Header),optionsSize);
         iprintf("Loaded options from address 0x%x\n",i);
         break;
-    }
+    }*/
 }
 
 void saveOptions(void *options, int optionsSize)
 {
-    puts("saveOptions");
+    /*puts("saveOptions");
     auto& flash=Flash::instance();
 
     unsigned int size=optionsSize+sizeof(Header);
@@ -134,5 +134,5 @@ void saveOptions(void *options, int optionsSize)
     header->crc=crc16(options,optionsSize);
     memcpy(buffer.get()+sizeof(Header),options,optionsSize);
     iprintf("Writing options @ address 0x%x\n",found);
-    if(flash.write(found,buffer.get(),size)==false) puts("Failed writing options");
+    if(flash.write(found,buffer.get(),size)==false) puts("Failed writing options");*/
 }
