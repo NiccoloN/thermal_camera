@@ -35,6 +35,16 @@
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
+#include "rp2040_spi.h"
+#include "hwmapping.h"
+
+using namespace miosix;
+
+using cs   = oled_cs;
+using sck  = oled_sck;  //Used as HW SPI
+using mosi = oled_mosi; //Used as HW SPI
+using dc   = oled_dc;
+using res  = oled_res;
 
 namespace mxgui {
 
@@ -117,7 +127,7 @@ public:
      * before calling setPixel()
      * \param p point where to draw pixel
      * \param color pixel color
-     */
+    */
     void setPixel(Point p, Color color) override;
 
     /**
@@ -283,7 +293,7 @@ public:
         //Default ctor: pixelLeft is zero.
         return pixel_iterator();
     }
-    
+
     /**
      * Destructor
      */

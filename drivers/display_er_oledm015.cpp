@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <line.h>
 #include "hwmapping.h"
+#include "rp2040_spi.h"
 
 using namespace std;
 using namespace miosix;
@@ -44,6 +45,18 @@ using mosi = oled_mosi; //Used as HW SPI
 using dc   = oled_dc;
 using res  = oled_res;
 
+
+static RP2040PL022DmaSpi spiController{
+    0,
+    100000,
+    true,
+    false,
+    Gpio<P0, 14>::getPin(), //random high pin
+    mosi::getPin(),
+    sck::getPin(),
+    cs::getPin()
+};
+
 /**
  * Send and receive a byte, thus returning only after transmission is complete
  * \param x byte to send
@@ -51,9 +64,8 @@ using res  = oled_res;
  */
 static unsigned char spi1sendRecv(unsigned char x=0)
 {
-    SPI1->DR=x;
-    while((SPI1->SR & SPI_SR_RXNE)==0) ;
-    return SPI1->DR;
+    //iprintf("[spi1sendRecv] Sending char x = %d\n", x);
+    return spiController.sendRecv(x, 8);
 }
 
 /**
@@ -66,9 +78,9 @@ static unsigned char spi1sendRecv(unsigned char x=0)
  */
 static void spi1sendOnly(unsigned char x)
 {
-    //NOTE: data is sent after the function returns, watch out!
-    while((SPI1->SR & SPI_SR_TXE)==0) ;
-    SPI1->DR=x;
+    //iprintf("[spi1sendOnly] Sending char x = %d\n", x);
+    unsigned char datum[1] = {x};
+    spiController.send(datum, 1, 8);
 }
 
 /**
@@ -76,18 +88,21 @@ static void spi1sendOnly(unsigned char x)
  */
 static void spi1waitCompletion()
 {
+    /*
     while(SPI1->SR & SPI_SR_BSY) ;
     //Reading DR and then SR clears overrun flag
     [[gnu::unused]] volatile int unused;
     unused=SPI1->DR;
     unused=SPI1->SR;
+    */
 }
 
-static Thread *waiting=nullptr;
-static uint32_t error;
+//static Thread *waiting=nullptr;
+//static uint32_t error;
 
 void SPI1txDmaHandlerImpl()
 {
+    /*
     uint32_t lisr = DMA2->LISR;
     if(lisr & (DMA_LISR_TEIF3 | DMA_LISR_DMEIF3 | DMA_LIFCR_CFEIF3))
         error=lisr;
@@ -99,10 +114,19 @@ void SPI1txDmaHandlerImpl()
         waiting->IRQwakeup();
         waiting=nullptr;
     }
+    */
 }
 
 static void spi1SendDMA(const Color *data, int size)
 {
+    iprintf("[spi1SendDma] Sending data of length %d\n", size);
+    unsigned char data_array[size];
+    for(int i = 0; i < size; i++){
+        data_array[i] = *data;
+        data++;
+    }
+    spiController.send(data_array, size, 8);
+    /*
     error=0;
     unsigned short tempCr1=SPI1->CR1;
     SPI1->CR1=0;
@@ -143,6 +167,7 @@ static void spi1SendDMA(const Color *data, int size)
     SPI1->CR1=0;
     SPI1->CR2=0;
     SPI1->CR1=tempCr1;
+    */
     //if(error) iprintf("SPI1 DMA tx failed LISR=%08lx\n", error); //TODO: look into why this fails
 }
 
@@ -154,7 +179,8 @@ static void cmd(unsigned char c)
 {
     dc::low();
     cs::low();
-    spi1sendRecv(c);
+    spi1sendOnly(c);
+    delayUs(1);
     cs::high();
     delayUs(1);
 }
@@ -167,7 +193,8 @@ static void dat(unsigned char d)
 {
     dc::high();
     cs::low();
-    spi1sendRecv(d);
+    spi1sendOnly(d);
+    delayUs(1);
     cs::high();
     delayUs(1);
 }
@@ -237,6 +264,7 @@ namespace mxgui {
 
 DisplayErOledm015::DisplayErOledm015() : buffer(nullptr), buffer2(nullptr)
 {
+    /*
     {
         GlobalIrqLock dLock;
         cs::mode(Mode::OUTPUT);      cs::high();
@@ -256,6 +284,9 @@ DisplayErOledm015::DisplayErOledm015() : buffer(nullptr), buffer2(nullptr)
             | SPI_CR1_SPE  //SPI enabled
             | SPI_CR1_BR_0 //SPI clock 60/4=15 MHz (Fmax=20MHz)
             | SPI_CR1_MSTR;//Master mode
+    */
+
+    iprintf("[display constructor] setting up display\n");
 
     res::high();
     Thread::sleep(1);
@@ -263,6 +294,8 @@ DisplayErOledm015::DisplayErOledm015() : buffer(nullptr), buffer2(nullptr)
     delayUs(100);
     res::high();
     delayUs(100);
+
+    iprintf("[display constructor] before initialization commands\n");
     
     static const unsigned char grayTable[]=
     {
@@ -273,6 +306,7 @@ DisplayErOledm015::DisplayErOledm015() : buffer(nullptr), buffer2(nullptr)
     };
     
     cmd(0xfd); dat(0x12);                       // Disable command lock
+    iprintf("[display constructor] Command lock disabled\n");
     cmd(0xfd); dat(0xb1);                       // Enable all commands
     cmd(0xae);                                  // Display OFF
     cmd(0xa1); dat(0x00);                       // Set display start line
@@ -284,7 +318,9 @@ DisplayErOledm015::DisplayErOledm015() : buffer(nullptr), buffer2(nullptr)
     cmd(0xb4); dat(0xa0); dat(0xb5); dat(0x55); // External VSL
     cmd(0xb6); dat(0x01);                       // Second precharge 1 DCLKS
     cmd(0xb8);                                  // Set gray table
+    iprintf("[display constructor] Before grey table\n");
     for(unsigned int i=0;i<sizeof(grayTable);i++) dat(grayTable[i]);
+    iprintf("[display constructor] After grey table\n");
     cmd(0xbb); dat(0x17);                       // Precharge voltage ~0.5VCC
     cmd(0xbe); dat(0x05);                       // VCOMH
     cmd(0xc1); dat(0x88); dat(0x70); dat(0x88); // A B C brightness
@@ -293,11 +329,14 @@ DisplayErOledm015::DisplayErOledm015() : buffer(nullptr), buffer2(nullptr)
     clear(0);
     cmd(0xaf);                                  // Display ON
 
+    iprintf("[display constructor] Initialization commands sent\n");
+
     setTextColor(make_pair(Color(0xffff),Color(0x0)));
 }
 
 void DisplayErOledm015::doTurnOn()
 {
+    iprintf("Turning on display\n");
     cmd(0xaf);
 }
 
@@ -333,10 +372,16 @@ void DisplayErOledm015::clear(Color color)
 
 void DisplayErOledm015::clear(Point p1, Point p2, Color color)
 {
+    //iprintf("[clear] Clearing display\n");
     imageWindow(p1,p2);
     doBeginPixelWrite();
     int numPixels=(p2.x()-p1.x()+1)*(p2.y()-p1.y()+1);
-    for(int i=0;i<numPixels;i++) doWritePixel(color);
+    //iprintf("[clear] Pixels to clear: %d\n", numPixels);
+    for(int i=0;i<numPixels;i++){
+        //if(i % 100 == 0)
+        //    iprintf("[clear] At pixel: %d\n", i);
+        doWritePixel(color);
+    }
     doEndPixelWrite();
 }
 
