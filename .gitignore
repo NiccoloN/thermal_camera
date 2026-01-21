@@ -7,6 +7,8 @@ main.map
 images/*.h
 images/*.cpp
 build
+compile_commands.json
+.cache/
 
 ### https://github.com/github/gitignore/blob/main/KiCad.gitignore
 # For PCBs designed using KiCad: https://www.kicad.org/

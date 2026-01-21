@@ -35,14 +35,10 @@ namespace miosix {
 RP2040PL022DmaSpi::RP2040PL022DmaSpi(int number, unsigned int bitrate, bool spo, bool sph,
                                GpioPin si, GpioPin so, GpioPin sck, GpioPin ce) noexcept
 {
-    iprintf("[rp2040_spi constructor] Entered constructor\n");
-    iprintf("[rp2040_spi constructor] Sleeping for voodoo reasons\n");
     Thread::sleep(2000);
     {
-        iprintf("[rp2040_spi constructor] Acquiring locks...\n");
         GlobalIrqLock lock;
         IRQn_Type irqn;
-        iprintf("[rp2040_spi constructor] I'm locked in, chad\n");
         switch(number)
         {
             case 0:
@@ -66,17 +62,14 @@ RP2040PL022DmaSpi::RP2040PL022DmaSpi(int number, unsigned int bitrate, bool spo,
             default:
                 errorHandler(Error::UNEXPECTED);
         }
-        iprintf("[rp2040_spi constructor] Setting up interrupts\n");
         IRQregisterIrq(lock,irqn,&RP2040PL022DmaSpi::IRQhandleInterrupt,this);
         txDmaCh=RP2040Dma::IRQregisterChannel(lock,&RP2040PL022DmaSpi::IRQhandleDmaInterrupt,this);
         rxDmaCh=RP2040Dma::IRQregisterChannel(lock,&RP2040PL022DmaSpi::IRQhandleDmaInterrupt,this);
-        iprintf("[rp2040_spi constructor] Setting up pins\n");
         si.function(Function::SPI); si.mode(Mode::INPUT); si.fast();
         so.function(Function::SPI); so.mode(Mode::OUTPUT); so.fast();
         sck.function(Function::SPI); sck.mode(Mode::OUTPUT); sck.fast();
         if (ce.isValid())
         {
-            iprintf("[rp2040_spi constructor] CS set as output\n");
             ce.function(Function::SPI); ce.mode(Mode::OUTPUT); ce.fast();
         }
     }
@@ -86,11 +79,9 @@ RP2040PL022DmaSpi::RP2040PL022DmaSpi(int number, unsigned int bitrate, bool spo,
             |(0<<SPI_SSPCR0_FRF_LSB)
             |(7<<SPI_SSPCR0_DSS_LSB);
 
-    iprintf("[rp2040_spi constructor] Setting up bitrate\n");
     setBitrate(bitrate);
     spi->cr1=SPI_SSPCR1_SSE_BITS;
     spi->dmacr=SPI_SSPDMACR_TXDMAE_BITS|SPI_SSPDMACR_RXDMAE_BITS;
-    iprintf("[rp2040_spi constructor] I'm out\n");
 }
 
 RP2040PL022DmaSpi::~RP2040PL022DmaSpi() noexcept
@@ -354,7 +345,6 @@ void RP2040PL022DmaSpi::send(const unsigned short send[], size_t len, unsigned w
 
 void RP2040PL022DmaSpi::send(const unsigned char send[], size_t len, unsigned wordSize) noexcept
 {
-    iprintf("[rp2040_spi] Sending bytes\n");
     sendImpl<unsigned char>(send, len, wordSize);
 }
 

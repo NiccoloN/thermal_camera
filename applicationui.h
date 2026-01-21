@@ -399,7 +399,7 @@ void ApplicationUI<IOHandler>::drawMenuEntry(mxgui::DrawingContext& dc, int id)
     switch (id) {
         case Back: _drawMenuEntry(dc, Back, "Back"); break;
         case Emissivity:
-            snprintf(buffer, 8, "%.2f", options.emissivity);
+            sniprintf(buffer, 8, "%.2f", options.emissivity);
             _drawMenuEntry(dc, Emissivity, "Emissivity", buffer);
             break;
         case FrameRate:
