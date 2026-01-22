@@ -27,8 +27,8 @@
 
 #include "config/miosix_settings.h"
 #include "kernel/logging.h"
-#include "rp2040_spi.h"
-#include "rp2040_dma.h"
+#include "rp2040_spi.h" // TODO: change to kernel version of the file
+#include "rp2040_dma.h" // TODO: change to kernel version of the file
 
 namespace miosix {
 
@@ -77,6 +77,7 @@ RP2040PL022DmaSpi::RP2040PL022DmaSpi(int number, unsigned int bitrate, bool spo,
             |(spo?SPI_SSPCR0_SPO_BITS:0)
             |(0<<SPI_SSPCR0_FRF_LSB)
             |(7<<SPI_SSPCR0_DSS_LSB);
+
     setBitrate(bitrate);
     spi->cr1=SPI_SSPCR1_SSE_BITS;
     spi->dmacr=SPI_SSPDMACR_TXDMAE_BITS|SPI_SSPDMACR_RXDMAE_BITS;

@@ -30,7 +30,9 @@
 #include <interfaces/endianness.h>
 #include <algorithm>
 #include <line.h>
+#include "drivers/rp2040_gpio.h"
 #include "hwmapping.h"
+#include "rp2040_spi.h"
 
 using namespace std;
 using namespace miosix;
@@ -45,116 +47,15 @@ using dc   = oled_dc;
 using res  = oled_res;
 
 /**
- * Send and receive a byte, thus returning only after transmission is complete
- * \param x byte to send
- * \return the received byte
- */
-static unsigned char spi1sendRecv(unsigned char x=0)
-{
-    SPI1->DR=x;
-    while((SPI1->SR & SPI_SR_RXNE)==0) ;
-    return SPI1->DR;
-}
-
-/**
- * Send a byte only.
- * NOTE: this function requires special care to use as
- * - it returns before the byte has been transmitted, and if this is the last
- *   byte, you have to wait with spi1waitCompletion() before deasserting cs
- * - as the received byte is ignored, the overrun flag gets set and it must be
- *   cleared (spi1waitCompletion() does that as well)
- */
-static void spi1sendOnly(unsigned char x)
-{
-    //NOTE: data is sent after the function returns, watch out!
-    while((SPI1->SR & SPI_SR_TXE)==0) ;
-    SPI1->DR=x;
-}
-
-/**
- * Must be called after using spi1sendOnly(), complete the last byte transmission
- */
-static void spi1waitCompletion()
-{
-    while(SPI1->SR & SPI_SR_BSY) ;
-    //Reading DR and then SR clears overrun flag
-    [[gnu::unused]] volatile int unused;
-    unused=SPI1->DR;
-    unused=SPI1->SR;
-}
-
-static Thread *waiting=nullptr;
-static uint32_t error;
-
-void SPI1txDmaHandlerImpl()
-{
-    uint32_t lisr = DMA2->LISR;
-    if(lisr & (DMA_LISR_TEIF3 | DMA_LISR_DMEIF3 | DMA_LIFCR_CFEIF3))
-        error=lisr;
-    DMA2->LIFCR=DMA_LIFCR_CTCIF3
-              | DMA_LIFCR_CTEIF3
-              | DMA_LIFCR_CDMEIF3
-              | DMA_LIFCR_CFEIF3;
-    if (!(DMA2_Stream3->CR & DMA_SxCR_EN) || (lisr & DMA_LISR_TCIF3)) {
-        waiting->IRQwakeup();
-        waiting=nullptr;
-    }
-}
-
-static void spi1SendDMA(const Color *data, int size)
-{
-    error=0;
-    unsigned short tempCr1=SPI1->CR1;
-    SPI1->CR1=0;
-    SPI1->CR2=SPI_CR2_TXDMAEN;
-    SPI1->CR1=tempCr1;
-    
-    waiting=Thread::getCurrentThread();
-    NVIC_ClearPendingIRQ(DMA2_Stream3_IRQn);
-    NVIC_SetPriority(DMA2_Stream3_IRQn,10);//Low priority for DMA
-    NVIC_EnableIRQ(DMA2_Stream3_IRQn);
-
-    DMA2_Stream3->CR=0;
-    DMA2_Stream3->PAR=reinterpret_cast<unsigned int>(&SPI1->DR);
-    DMA2_Stream3->M0AR=reinterpret_cast<unsigned int>(data);
-    DMA2_Stream3->NDTR=2*size; //Size is at the peripheral side (8bit)
-    DMA2_Stream3->FCR=DMA_SxFCR_FEIE
-                    | DMA_SxFCR_DMDIS;
-    DMA2_Stream3->CR=DMA_SxCR_CHSEL_0 //Channel 3 SPI1
-                   | DMA_SxCR_CHSEL_1
-                   //| DMA_SxCR_MSIZE_0 //Memory size 16 bit
-                   | DMA_SxCR_MINC    //Increment memory pointer
-                   | DMA_SxCR_DIR_0   //Memory to peripheral
-                   | DMA_SxCR_TCIE    //Interrupt on transfer complete
-                   | DMA_SxCR_TEIE    //Interrupt on transfer error
-                   | DMA_SxCR_DMEIE   //Interrupt on direct mode error
-                   | DMA_SxCR_EN;     //Start DMA
-    
-    {
-        FastGlobalIrqLock dLock;
-        while(waiting!=nullptr)
-        {
-            Thread::IRQglobalIrqUnlockAndWait(dLock);
-        }
-    }
-    
-    NVIC_DisableIRQ(DMA2_Stream3_IRQn);
-    spi1waitCompletion();
-    SPI1->CR1=0;
-    SPI1->CR2=0;
-    SPI1->CR1=tempCr1;
-    //if(error) iprintf("SPI1 DMA tx failed LISR=%08lx\n", error); //TODO: look into why this fails
-}
-
-/**
  * Send a command to the display
  * \param c command
  */
-static void cmd(unsigned char c)
+void DisplayErOledm015::cmd(unsigned char c)
 {
     dc::low();
     cs::low();
-    spi1sendRecv(c);
+    spiController.send(&c, 1, 8);
+    delayUs(1);
     cs::high();
     delayUs(1);
 }
@@ -163,11 +64,12 @@ static void cmd(unsigned char c)
  * Send data to the display
  * \param d data
  */
-static void dat(unsigned char d)
+void DisplayErOledm015::dat(unsigned char d)
 {
     dc::high();
     cs::low();
-    spi1sendRecv(d);
+    spiController.send(&d, 1, 8);
+    delayUs(1);
     cs::high();
     delayUs(1);
 }
@@ -178,7 +80,7 @@ static const int width=128, height=128; ///< Display size
  * Set cursor to desired location
  * \param point where to set cursor (0<=x<128, 0<=y<128)
  */
-static void setCursor(Point p)
+void DisplayErOledm015::setCursor(Point p)
 {
     #ifdef MXGUI_ORIENTATION_VERTICAL
     cmd(0x15); dat(p.x()); dat(0x7f); // Set column address
@@ -196,7 +98,7 @@ static void setCursor(Point p)
  * \param p1 upper left corner of the window
  * \param p2 lower right corner of the window
  */
-static void textWindow(Point p1, Point p2)
+void DisplayErOledm015::textWindow(Point p1, Point p2)
 {
     #ifdef MXGUI_ORIENTATION_VERTICAL
     cmd(0x15); dat(p1.x()); dat(p2.x()); // Set column address
@@ -216,7 +118,7 @@ static void textWindow(Point p1, Point p2)
  * \param p1 upper left corner of the window
  * \param p2 lower right corner of the window
  */
-static inline void imageWindow(Point p1, Point p2)
+inline void DisplayErOledm015::imageWindow(Point p1, Point p2)
 {
     #ifdef MXGUI_ORIENTATION_VERTICAL
     cmd(0x15); dat(p1.x()); dat(p2.x()); // Set column address
@@ -235,27 +137,24 @@ static inline void imageWindow(Point p1, Point p2)
 
 namespace mxgui {
 
-DisplayErOledm015::DisplayErOledm015() : buffer(nullptr), buffer2(nullptr)
+DisplayErOledm015::DisplayErOledm015() : buffer(nullptr), buffer2(nullptr),
+spiController(
+    0,
+    1000000,
+    true,
+    true,
+    Gpio<P0, 14>::getPin(), //random high pin
+    mosi::getPin(),
+    sck::getPin(),
+    Gpio<P0, 40>::getPin() //random high pin
+)
 {
-    {
-        GlobalIrqLock dLock;
-        cs::mode(Mode::OUTPUT);      cs::high();
-        sck::mode(Mode::ALTERNATE);  sck::alternateFunction(5);
-        mosi::mode(Mode::ALTERNATE); mosi::alternateFunction(5);
-        dc::mode(Mode::OUTPUT);
-        res::mode(Mode::OUTPUT);
 
-        IRQregisterIrq(dLock, DMA2_Stream3_IRQn, SPI1txDmaHandlerImpl);
+    cs::function(Function::GPIO);
+    cs::mode(Mode::OUTPUT);
 
-        RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
-        RCC_SYNC();
-    }
-
-    SPI1->CR1=SPI_CR1_SSM  //No HW cs
-            | SPI_CR1_SSI
-            | SPI_CR1_SPE  //SPI enabled
-            | SPI_CR1_BR_0 //SPI clock 60/4=15 MHz (Fmax=20MHz)
-            | SPI_CR1_MSTR;//Master mode
+    dc::function(Function::GPIO);
+    dc::mode(Mode::OUTPUT);
 
     res::high();
     Thread::sleep(1);
@@ -263,7 +162,7 @@ DisplayErOledm015::DisplayErOledm015() : buffer(nullptr), buffer2(nullptr)
     delayUs(100);
     res::high();
     delayUs(100);
-    
+
     static const unsigned char grayTable[]=
     {
           0,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16,
@@ -292,7 +191,6 @@ DisplayErOledm015::DisplayErOledm015() : buffer(nullptr), buffer2(nullptr)
     cmd(0xca); dat(0x7f);                       // Duty 1:128
     clear(0);
     cmd(0xaf);                                  // Display ON
-
     setTextColor(make_pair(Color(0xffff),Color(0x0)));
 }
 
@@ -388,7 +286,7 @@ void DisplayErOledm015::scanLine(Point p, const Color *colors, unsigned short le
     dc::high();
     cs::low();
     for(int i=0;i<length;i++) buffer2[i]=toBigEndian16(colors[i]);
-    spi1SendDMA(buffer2,length);
+    spiController.send(buffer2, length, 8);
     cs::high();
     delayUs(1);
 }
@@ -426,7 +324,7 @@ void DisplayErOledm015::drawImage(Point p, const ImageBase& img)
         {
             int chunkSize=min(imgSize,buffer2Size);
             for(int i=0;i<chunkSize;i++) buffer2[i]=toBigEndian16(imgData[i]);
-            spi1SendDMA(buffer2,chunkSize);
+            spiController.send(buffer2, chunkSize, 8);
             imgSize-=chunkSize;
             imgData+=chunkSize;
         }
@@ -451,17 +349,17 @@ void DisplayErOledm015::drawRectangle(Point a, Point b, Color c)
 DisplayErOledm015::pixel_iterator DisplayErOledm015::begin(Point p1, Point p2,
         IteratorDirection d)
 {
-    if(p1.x()<0 || p1.y()<0 || p2.x()<0 || p2.y()<0) return pixel_iterator();
+    if(p1.x()<0 || p1.y()<0 || p2.x()<0 || p2.y()<0) return pixel_iterator(0, this);
     if(p1.x()>=width || p1.y()>=height || p2.x()>=width || p2.y()>=height)
         return pixel_iterator();
-    if(p2.x()<p1.x() || p2.y()<p1.y()) return pixel_iterator();
+    if(p2.x()<p1.x() || p2.y()<p1.y()) return pixel_iterator(0, this);
  
     if(d==DR) textWindow(p1,p2);
     else imageWindow(p1,p2);
     doBeginPixelWrite();
 
     unsigned int numPixels=(p2.x()-p1.x()+1)*(p2.y()-p1.y()+1);
-    return pixel_iterator(numPixels);
+    return pixel_iterator(numPixels, this);
 }
 
 DisplayErOledm015::~DisplayErOledm015() {}
@@ -475,13 +373,13 @@ void DisplayErOledm015::doBeginPixelWrite()
     
 void DisplayErOledm015::doWritePixel(Color c)
 {
-    spi1sendOnly(c>>8);
-    spi1sendOnly(c);
+    spiController.send(&c, 2, 8); // TODO: check
+    //spi1sendOnly(c>>8);
+    //spi1sendOnly(c);
 }
     
 void DisplayErOledm015::doEndPixelWrite()
 {
-    spi1waitCompletion();
     cs::high();
     delayUs(1);
 }

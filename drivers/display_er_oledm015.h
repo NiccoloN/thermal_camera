@@ -35,6 +35,16 @@
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
+#include "rp2040_spi.h"
+#include "hwmapping.h"
+
+using namespace miosix;
+
+using cs   = oled_cs;
+using sck  = oled_sck;  //Used as HW SPI
+using mosi = oled_mosi; //Used as HW SPI
+using dc   = oled_dc;
+using res  = oled_res;
 
 namespace mxgui {
 
@@ -117,7 +127,7 @@ public:
      * before calling setPixel()
      * \param p point where to draw pixel
      * \param color pixel color
-     */
+    */
     void setPixel(Point p, Color color) override;
 
     /**
@@ -200,8 +210,8 @@ public:
         pixel_iterator& operator= (Color color)
         {
             pixelLeft--;
-            DisplayErOledm015::doWritePixel(color);
-            if(pixelLeft==0) DisplayErOledm015::doEndPixelWrite();
+            displayPtr->doWritePixel(color);
+            if(pixelLeft==0) displayPtr->doEndPixelWrite();
             return *this;
         }
 
@@ -244,7 +254,7 @@ public:
          */
         void invalidate()
         {
-            DisplayErOledm015::doEndPixelWrite();
+            displayPtr->doEndPixelWrite();
         }
 
     private:
@@ -255,11 +265,13 @@ public:
          * \param direction Iterator direction
          * \param disp Display we're associated
          */
-        pixel_iterator(unsigned int pixelLeft): pixelLeft(pixelLeft) {}
+        pixel_iterator(unsigned int pixelLeft, DisplayErOledm015 *display): pixelLeft(pixelLeft), displayPtr(display) {}
 
         unsigned int pixelLeft; ///< How many pixels are left to draw
 
         friend class DisplayErOledm015; //Needs access to ctor
+                                        //
+        DisplayErOledm015 *displayPtr = nullptr;
     };
 
     /**
@@ -283,7 +295,7 @@ public:
         //Default ctor: pixelLeft is zero.
         return pixel_iterator();
     }
-    
+
     /**
      * Destructor
      */
@@ -291,15 +303,25 @@ public:
 
 private:
     
-    static void doBeginPixelWrite();
+    void doBeginPixelWrite();
     
-    static void doWritePixel(Color c);
+    void doWritePixel(Color c);
     
-    static void doEndPixelWrite();
-    
+    void doEndPixelWrite();
+
+    void imageWindow(Point p1, Point p2);
+
+    void textWindow(Point p1, Point p2);
+    void setCursor(Point p);
+    void cmd(unsigned char c);
+
+    void dat(unsigned char d);
+
     Color *buffer;                    ///< For scanLineBuffer
     Color *buffer2;                   ///< For DMA transfers
     static const int buffer2Size=512; ///< DMA buffer size
+
+    RP2040PL022DmaSpi spiController;
 };
 
 } //namespace mxgui

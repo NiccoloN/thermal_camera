@@ -33,6 +33,7 @@ using namespace miosix;
 
 void initializeBoard()
 {
+    /*
     {
         FastGlobalIrqLock dLock;
         RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
@@ -51,6 +52,7 @@ void initializeBoard()
     ADC1->SQR1=0; //Do only one conversion
     ADC1->SQR2=0;
     ADC1->SQR3=1; //Convert channel 1 (battery voltage)
+    */
 }
 
 void shutdownBoard()
@@ -62,6 +64,7 @@ void shutdownBoard()
 
 int getBatteryVoltage()
 {
+    /*
     ADC1->CR2=ADC_CR2_ADON; //Turn ADC ON
     delayUs(3); //Power up time
     ADC1->CR2 |= ADC_CR2_SWSTART; //Start conversion
@@ -70,6 +73,8 @@ int getBatteryVoltage()
     ADC1->CR2=0; //Turn ADC OFF
     //return the voltage in V multiplied by 10, so 40=4V
     return result/62; //4096/2/Vcc/10=62, Vcc=3.3V
+    */
+    return 100;
 }
 
 BatteryLevel batteryLevel(int voltage)

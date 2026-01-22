@@ -39,8 +39,8 @@ using oled_dc     = Gpio<P0,4>;
 using oled_res    = Gpio<P0,14>;
 
 //Sensor
-using sen_scl     = Gpio<P0,5>;  //I2C1
-using sen_sda     = Gpio<P0,4>;  //I2C1
+using sen_scl     = Gpio<P0,3>;  //I2C1
+using sen_sda     = Gpio<P0,2>;  //I2C1
 
 //Buttons and power management
 using up_btn      = Gpio<P0,14>;

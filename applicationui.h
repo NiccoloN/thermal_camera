@@ -190,7 +190,7 @@ template<class IOHandler>
 void ApplicationUI<IOHandler>::update()
 {
     mxgui::DrawingContext dc(display);
-    ButtonState btns = ioHandler.checkButtons();
+    /*ButtonState btns = ioHandler.checkButtons();
     upBtn.update(btns.up);
     onBtn.update(btns.on);
     switch (state) {
@@ -199,8 +199,10 @@ void ApplicationUI<IOHandler>::update()
         case Menu: updateMenu(dc); break;
         case Shutdown:
         default: break;
-    }
-    if (state == Main || state == Menu) drawBatteryIcon(dc);
+    }*/
+    //if (state == Main || state == Menu) drawBatteryIcon(dc);
+    drawBatteryIcon(dc);
+    drawStaticPartOfMainScreen(dc);
 }
 
 template<class IOHandler>
@@ -397,7 +399,7 @@ void ApplicationUI<IOHandler>::drawMenuEntry(mxgui::DrawingContext& dc, int id)
     switch (id) {
         case Back: _drawMenuEntry(dc, Back, "Back"); break;
         case Emissivity:
-            snprintf(buffer, 8, "%.2f", options.emissivity);
+            sniprintf(buffer, 8, "%.2f", options.emissivity);
             _drawMenuEntry(dc, Emissivity, "Emissivity", buffer);
             break;
         case FrameRate:
