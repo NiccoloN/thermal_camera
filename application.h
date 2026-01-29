@@ -30,7 +30,7 @@
 #include <memory>
 #include <miosix.h>
 #include <mxgui/display.h>
-//#include <drivers/stm32f2_f4_i2c.h>
+#include "drivers/rp2040_i2c.h"
 #include <drivers/mlx90640.h>
 #include <drivers/hwmapping.h>
 //#include <drivers/usb_tinyusb.h>
@@ -83,8 +83,8 @@ private:
     mxgui::Display& display;
     UI ui;
     int prevBatteryVoltage=42; //4.2V
-    //std::unique_ptr<miosix::I2C1Master> i2c;
-    //std::unique_ptr<MLX90640> sensor;
+    std::unique_ptr<miosix::RP2040I2C1Master> i2c;
+    std::unique_ptr<MLX90640> sensor;
     //std::unique_ptr<USBCDC> usb;
     miosix::Queue<MLX90640RawFrame*, 1> rawFrameQueue;
     miosix::Queue<MLX90640Frame*, 1> processedFrameQueue;

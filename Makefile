@@ -19,6 +19,7 @@ drivers/display_er_oledm015.cpp drivers/misc.cpp   \
 drivers/options_save.cpp         \
 drivers/mlx90640.cpp drivers/MLX90640_API.cpp      \
 drivers/rp2040_spi.cpp \
+drivers/rp2040_i2c.cpp \
 drivers/arm_pl022_spi.cpp \
 # drivers/usb_tinyusb.cpp
 

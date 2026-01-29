@@ -46,7 +46,7 @@ MLX90640Refresh refreshFromInt(int rate)
     //NOTE: discard lower refresh rates
 }
 
-MLX90640::MLX90640(I2C1Master *i2c, unsigned char devAddr)
+MLX90640::MLX90640(RP2040I2C1Master *i2c, unsigned char devAddr)
     : i2c(i2c), devAddr(devAddr<<1) //Make room for r/w bit
 {
     // Wait 80ms as recommended by the datasheet.

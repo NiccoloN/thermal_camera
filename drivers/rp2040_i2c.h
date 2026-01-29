@@ -8,7 +8,7 @@ namespace miosix {
 /**
  * Driver for the I2C peripheral in RP2040 under Miosix
  */
-class I2C1Master
+class RP2040I2C1Master
 {
 public:
     /**
@@ -18,7 +18,7 @@ public:
      * \param scl SCL GPIO pin, the constructor configures the pin
      * \param frequency I2C bus frequency, in kHz.
      */
-    I2C1Master(GpioPin sda, GpioPin scl, int frequency=100);
+    RP2040I2C1Master(GpioPin sda, GpioPin scl, int frequency=400);
 
     /**
      * Send data
@@ -91,11 +91,11 @@ public:
     /**
      * Destructor
      */
-    ~I2C1Master();
+    ~RP2040I2C1Master();
     
 private:
-    I2C1Master(const I2C1Master&);
-    I2C1Master& operator=(const I2C1Master&);
+    RP2040I2C1Master(const RP2040I2C1Master&);
+    RP2040I2C1Master& operator=(const RP2040I2C1Master&);
     
     /**
      * Internal version of send, able to omit the final STOP
@@ -131,25 +131,32 @@ private:
     /**
      * DMA I2C rx end of transfer actual implementation
      */
-    void I2C1rxDmaHandlerImpl();
+    void I2C1rxDmaHandler();
 
     /**
      * DMA I2C tx end of transfer
      */
-    void I2C1txDmaHandlerImpl();
+    void I2C1txDmaHandler();
 
     /**
      * I2C address sent interrupt actual implementation
      */
-    void I2C1HandlerImpl();
+    void I2C1IrqHandler();
 
     /**
      * I2C error interrupt actual implementation
      */
-    void I2C1errHandlerImpl();
+    void I2C1errIrqHandler();
+
+    /**
+     * Sets the I2C's controller to the specified bitrate (in kHz)
+     */
+    void setBitrate(int bitrate);
 
     volatile bool error;     ///< Set to true by IRQ on error
     miosix::Thread *waiting=nullptr; ///< Thread waiting for an operation to complete
+    i2c_hw_t *i2c;
+    unsigned char txDmaCh, rxDmaCh;
 };
 
 } //namespace miosix

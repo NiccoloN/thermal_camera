@@ -29,7 +29,7 @@
 
 #include <chrono>
 #include "drivers/mlx90640frame.h"
-#include "drivers/stm32f2_f4_i2c.h"
+#include "drivers/rp2040_i2c.h"
 #include "drivers/MLX90640_API.h"
 
 /**
@@ -72,7 +72,7 @@ public:
      * \param i2c pointer to I2C driver
      * \param devAddr MLX90640 device address
      */
-    MLX90640(miosix::I2C1Master *i2c, unsigned char devAddr=0x33);
+    MLX90640(miosix::RP2040I2C1Master *i2c, unsigned char devAddr=0x33); //WARN: CHECK ADDR
     
     /**
      * Set the sensor refresh rate
@@ -162,7 +162,7 @@ private:
      */
     bool write(unsigned int addr, unsigned short data);
     
-    miosix::I2C1Master *i2c;
+    miosix::RP2040I2C1Master *i2c;
     const unsigned char devAddr;
     MLX90640Refresh rr;
     std::chrono::time_point<std::chrono::system_clock> lastFrameReady;
