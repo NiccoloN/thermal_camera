@@ -319,7 +319,7 @@ private:
 
     Color *buffer;                    ///< For scanLineBuffer
     Color *buffer2;                   ///< For DMA transfers
-    static const int buffer2Size=512; ///< DMA buffer size
+    static constexpr int buffer2Size=512; ///< DMA buffer size
 
     RP2040PL022DmaSpi spiController;
 };

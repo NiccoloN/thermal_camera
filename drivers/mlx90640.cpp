@@ -26,6 +26,7 @@
  ***************************************************************************/
 
 #include "mlx90640.h"
+#include "applicationui.h"
 #include <cstdio>
 #include <thread>
 #include <stdexcept>
@@ -47,7 +48,7 @@ MLX90640Refresh refreshFromInt(int rate)
 }
 
 MLX90640::MLX90640(RP2040I2C1Master *i2c, unsigned char devAddr)
-    : i2c(i2c), devAddr(devAddr<<1) //Make room for r/w bit
+    : i2c(i2c), devAddr(devAddr<<1) //NOTE: for the original stm32 code, devAddr was shifted by 1 to make room for r/w bit
 {
     // Wait 80ms as recommended by the datasheet.
     // If we don't do this, on some sensors the EEPROM readout might be glitched
@@ -167,5 +168,7 @@ bool MLX90640::write(unsigned int addr, unsigned short data)
     unsigned short tx[2];
     tx[0]=toBigEndian16(addr);
     tx[1]=toBigEndian16(data);
+    //tx[0]=addr;
+    //tx[1]=data;
     return i2c->send(devAddr,&tx,4);
 }

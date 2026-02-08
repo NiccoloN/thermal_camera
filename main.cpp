@@ -26,11 +26,19 @@
  ***************************************************************************/
 
 #include <cstdio>
+#include "drivers/mlx90640.h"
+#include "drivers/rp2040_i2c.h"
 #include "miosix.h"
 #include <drivers/misc.h>
 #include <application.h>
 #include <mxgui/display.h>
 #include <drivers/display_er_oledm015.h>
+#include <e20/e20.h>
+#include <thread>
+#include <drivers/hwmapping.h>
+#include <drivers/mlx90640.h>
+#include <memory>
+#include <miosix.h>
 
 using namespace std;
 using namespace mxgui;
@@ -51,9 +59,32 @@ void *profilerMain(void *)
 }
 #endif
 
+FixedEventQueue<20> eq;
+
 int main()
 {
+    thread t([]{ eq.run(); });
+    t.detach();
     iprintf("iprintf-o, ergo sum!\n");
+
+    /*
+    RP2040I2C1Master i2c(sen_sda::getPin(), sen_scl::getPin(), 400);
+
+    //Thread::sleep(10);
+
+    char data[6] = "Dario";
+    //i2c.stop();
+    //i2c.send(0x33, data, 1, false);
+    //i2c.send(0x33, &data[1], 1, false);
+    //i2c.send(0x33, data, 1, true);
+    i2c.send(0x33, data, 5, true);
+
+    for(;;){
+        iprintf("End!\n");
+        Thread::sleep(1000);
+    }
+    //--------------------------
+    */
 
     initializeBoard();
     

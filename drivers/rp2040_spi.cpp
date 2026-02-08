@@ -25,6 +25,7 @@
  *   along with this program; if not, see <http://www.gnu.org/licenses/>   *
  ***************************************************************************/
 
+#include "CMSIS/Device/RaspberryPi/RP2040/Include/RP2040.h"
 #include "config/miosix_settings.h"
 #include "kernel/logging.h"
 #include "rp2040_spi.h" // TODO: change to kernel version of the file
@@ -35,6 +36,9 @@ namespace miosix {
 RP2040PL022DmaSpi::RP2040PL022DmaSpi(int number, unsigned int bitrate, bool spo, bool sph,
                                GpioPin si, GpioPin so, GpioPin sck, GpioPin ce) noexcept
 {
+    iprintf("Initializing SPI...\n");
+    iprintf("irq %d enabled? %d\n", SPI0_IRQ_IRQn, IRQisIrqRegistered(SPI0_IRQ_IRQn));
+    iprintf("irq %d enabled? %d\n", SPI1_IRQ_IRQn, IRQisIrqRegistered(SPI1_IRQ_IRQn));
     {
         GlobalIrqLock lock;
         IRQn_Type irqn;
@@ -81,6 +85,7 @@ RP2040PL022DmaSpi::RP2040PL022DmaSpi(int number, unsigned int bitrate, bool spo,
     setBitrate(bitrate);
     spi->cr1=SPI_SSPCR1_SSE_BITS;
     spi->dmacr=SPI_SSPDMACR_TXDMAE_BITS|SPI_SSPDMACR_RXDMAE_BITS;
+    iprintf("SPI initialized!\n");
 }
 
 RP2040PL022DmaSpi::~RP2040PL022DmaSpi() noexcept

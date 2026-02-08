@@ -52,7 +52,7 @@ public:
     bool recv(unsigned char address, void *data, int len);
 
     /**
-     * Send and receive data, with a repeated START betwwen send and receive
+     * Send and receive data, with a repeated START between send and receive
      * - send START condition
      * - send address
      * - send data
@@ -61,7 +61,7 @@ public:
      * - receive data
      * - send STOP condition
      * 
-     * \param address device address, stored in bits 7 to 1. Bit 0 is ignored
+     * \param address device address, stored in bits 7 to 1.
      * \param txData data to transmit, set to nullptr if none
      * \param txLen number of bytes to transmit, set to 0 if none
      * \param rxData data to receive, set to nullptr if none
@@ -83,19 +83,9 @@ public:
      */
     bool probe(unsigned char address)
     {
-        bool result=start(address & 0xfe);
-        stop();
-        return result;
+        //TODO
+        return true;
     }
-    
-    /**
-     * Destructor
-     */
-    ~RP2040I2C1Master();
-    
-private:
-    RP2040I2C1Master(const RP2040I2C1Master&);
-    RP2040I2C1Master& operator=(const RP2040I2C1Master&);
     
     /**
      * Internal version of send, able to omit the final STOP
@@ -109,49 +99,38 @@ private:
     bool send(unsigned char address, const void *data, int len, bool sendStop);
     
     /**
-     * Send a start condition
-     * \param address device address (includes r/w bit)
-     * \return true if successful
-     */
-    bool start(unsigned char address);
-    bool startWorkaround(unsigned char address, int len);
-    
-    /**
      * Wait until until an interrupt occurs during the send start bit and
      * send address phases of the i2c communication.
      * \return true if the operation was successful, false on error
      */
-    bool waitStatus1();
+    //bool waitStatus1();
     
     /**
      * Send a stop condition, waiting for its completion
      */
     void stop();
+    /**
+     * Destructor
+     */
+    ~RP2040I2C1Master();
+    
+private:
+    RP2040I2C1Master(const RP2040I2C1Master&);
+    RP2040I2C1Master& operator=(const RP2040I2C1Master&);
 
     /**
-     * DMA I2C rx end of transfer actual implementation
+     * DMA I2C interrupt handler
      */
-    void I2C1rxDmaHandler();
+    void IRQhandleDmaInterrupt();
 
-    /**
-     * DMA I2C tx end of transfer
-     */
-    void I2C1txDmaHandler();
-
-    /**
-     * I2C address sent interrupt actual implementation
-     */
-    void I2C1IrqHandler();
-
-    /**
-     * I2C error interrupt actual implementation
-     */
-    void I2C1errIrqHandler();
+    void IRQhandleInterrupt() noexcept;
 
     /**
      * Sets the I2C's controller to the specified bitrate (in kHz)
      */
     void setBitrate(int bitrate);
+
+    void setTarget(unsigned char targetAddr);
 
     volatile bool error;     ///< Set to true by IRQ on error
     miosix::Thread *waiting=nullptr; ///< Thread waiting for an operation to complete

@@ -72,6 +72,7 @@ enum class Function
     UART    = IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_UART0_TX,
     I2C0    = IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_I2C0_SDA,
     I2C1    = IO_BANK0_GPIO2_CTRL_FUNCSEL_VALUE_I2C1_SDA, // TODO: Only for specific pins
+    I2C1_SCL = IO_BANK0_GPIO3_CTRL_FUNCSEL_VALUE_I2C1_SCL,                                                       // 
     PWM     = IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_PWM_A_0,
     // SIO = Single cycle IO, a silly name for normal CPU-driven GPIOs
     SIO     = IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_SIO_0,
