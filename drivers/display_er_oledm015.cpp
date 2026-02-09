@@ -54,8 +54,9 @@ void DisplayErOledm015::cmd(unsigned char c)
 {
     dc::low();
     cs::low();
-    spiController.send(&c, 1, 8);
-    delayUs(1);
+    //spiController.send(&c, 1, 8);
+    spiController.sendRecv(c);
+    //delayUs(1);
     cs::high();
     delayUs(1);
 }
@@ -68,8 +69,9 @@ void DisplayErOledm015::dat(unsigned char d)
 {
     dc::high();
     cs::low();
-    spiController.send(&d, 1, 8);
-    delayUs(1);
+    //spiController.send(&d, 1, 8);
+    spiController.sendRecv(d);
+    //delayUs(1);
     cs::high();
     delayUs(1);
 }
@@ -143,15 +145,17 @@ spiController(
     1000000,
     true,
     true,
-    Gpio<P0, 14>::getPin(), //random high pin
-    mosi::getPin(),
-    sck::getPin(),
-    Gpio<P0, 40>::getPin() //random high pin
+    Gpio<P0, 44>::getPin(), //random high pin
+    oled_mosi::getPin(),
+    oled_sck::getPin(),
+    Gpio<P0, 44>::getPin() //random high pin
 )
 {
 
+    
     cs::function(Function::GPIO);
     cs::mode(Mode::OUTPUT);
+    
 
     dc::function(Function::GPIO);
     dc::mode(Mode::OUTPUT);

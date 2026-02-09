@@ -61,8 +61,8 @@ Application::Application(Display& display)
       //usb(make_unique<USBCDC>(Priority()))
 {
     loadOptions(&ui.options,sizeof(ui.options));
-    //if(sensor->setRefresh(refreshFromInt(ui.options.frameRate))==false)
-    //    puts("Error setting framerate");
+    if(sensor->setRefresh(refreshFromInt(ui.options.frameRate))==false)
+        puts("Error setting framerate");
     display.setBrightness(ui.options.brightness * 6);
 }
 
@@ -71,7 +71,7 @@ void Application::run()
     iprintf("[application.run()] Starting application\n");
 
     //High priority for sensor read, prevents I2C reads from starving
-    //sensorThread = Thread::create(Application::sensorThreadMainTramp, 2048U, Priority(DEFAULT_PRIORITY+1), static_cast<void*>(this), Thread::JOINABLE);
+    sensorThread = Thread::create(Application::sensorThreadMainTramp, 2048U, Priority(DEFAULT_PRIORITY+1), static_cast<void*>(this), Thread::JOINABLE);
     //Low priority for processing, prevents display writes from starving
     Thread *processThread = Thread::create(Application::processThreadMainTramp, 2048U, Priority(DEFAULT_PRIORITY-1), static_cast<void*>(this), Thread::JOINABLE);
 

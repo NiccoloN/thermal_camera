@@ -201,8 +201,6 @@ void ApplicationUI<IOHandler>::update()
         default: break;
     }
     if (state == Main || state == Menu) drawBatteryIcon(dc);
-    drawBatteryIcon(dc);
-    drawStaticPartOfMainScreen(dc);
 }
 
 template<class IOHandler>

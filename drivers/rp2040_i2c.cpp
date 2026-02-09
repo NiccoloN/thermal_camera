@@ -6,6 +6,7 @@
 #include "board_settings.h"
 #include "drivers/rp2040_dma.h"
 #include "rp2040/hardware/regs/dma.h"
+#include "rp2040/hardware/regs/i2c.h"
 #include "rp2040/hardware/structs/resets.h"
 #include <cstdint>
 #include <interfaces/interrupts.h>
@@ -42,10 +43,20 @@ RP2040I2C1Master::RP2040I2C1Master(GpioPin sda, GpioPin scl, int frequency)
         
         //Disable the peripheral in order to write the control register IC_CON
         i2c->enable = I2C_IC_ENABLE_RESET;
-        //while(i2c->enable_status & I2C_IC_ENABLE_STATUS_IC_EN_BITS)
-          //  ;
+
+        /*
+         * Bit 11 ("SPECIAL"): 0 => normal operation (NO START BYTE NOR GENERAL CALL;
+         * Bit 10 ("GC_OR_START"): 0 BUT it is ignored because SPECIAL is set to 1;
+         * Bit 9:0: 0..0 => where the target address will be placed;
+         */
         i2c->tar = I2C_IC_TAR_RESET;
-        i2c->rx_tl = 0xFF;
+
+        /*
+         * Number of elements at or above which the {R,T}X_FULL interrupt is fired.
+         * Since the I2C controller can hold at most 16 entries, we'll set it to 15.
+         */
+        i2c->rx_tl = 15;
+        i2c->tx_tl = 15;
 
         var = i2c->clr_intr;
         
@@ -60,13 +71,12 @@ RP2040I2C1Master::RP2040I2C1Master(GpioPin sda, GpioPin scl, int frequency)
          *  - master mode enabled.
          */
         i2c->con = I2C_IC_CON_RESET;
-        //i2c->intr_mask &= ~(0x10); //NOTE: TO CHECK
         i2c->intr_mask = 0; //NOTE: TO CHECK
 
-        i2c->dma_cr = 0;
+        i2c->dma_cr = I2C_IC_DMA_CR_TDMAE_BITS | I2C_IC_DMA_CR_RDMAE_BITS;
 
-        sda.function(Function::I2C1); //sda.fast(); 
-        scl.function(Function::I2C1_SCL); scl.mode(Mode::OUTPUT); //scl.fast();
+        sda.function(Function::I2C1); sda.fast(); //sda.mode(Mode::INPUT_SCHMITT_TRIG_PULL_UP);   //sda.fast(); 
+        scl.function(Function::I2C1_SCL); scl.fast(); //scl.mode(Mode::INPUT_SCHMITT_TRIG_PULL_UP); //scl.fast();
 
         setBitrate(frequency);
 
@@ -81,9 +91,10 @@ RP2040I2C1Master::RP2040I2C1Master(GpioPin sda, GpioPin scl, int frequency)
     
 }
 
+// TODO: check speed calculation
+// See reference @ 4.3.14.2
+// To be called ONLY when the device is disabled
 void RP2040I2C1Master::setBitrate(int frequency){
-    //iprintf("Setting bitrate (%d kHz)...\n", frequency);
-    // See reference @ 4.3.14.2
     unsigned long oscfreq = cpuFrequency; //ic_clk frequency (Hz)
     unsigned long MIN_SCL_HIGHtime; //minimum high period, ns
     unsigned long MIN_SCL_LOWtime; //minimum low period, ns
@@ -106,8 +117,6 @@ void RP2040I2C1Master::setBitrate(int frequency){
 
     unsigned char fs_spklen = ((unsigned long)spike_suppression_period * oscfreq)/1000000000;
 
-    //iprintf("fs_spklen: %d\n", fs_spklen);
-
     i2c->fs_spklen = fs_spklen;
 
     //TODO: round-up (ceiling) in an elegant and efficient way
@@ -122,32 +131,25 @@ void RP2040I2C1Master::setBitrate(int frequency){
     uint32_t hcnt = ((unsigned long) oscfreq / (frequency * 1000))/2 - fs_spklen - 7;
     uint32_t lcnt = ((unsigned long) oscfreq / (frequency * 1000))/2 - 1;
 
-    //iprintf("Max speed {h,l}cnt: %ld, %ld\n", max_speed_hcnt, max_speed_lcnt);
-    //iprintf("{h,l}cnt: %ld, %ld\n", hcnt, lcnt);
-
     if(frequency <= 100){
         // Minimum timing requirements with respect to fs_spklen
         i2c->ss_scl_hcnt = hcnt >= max_speed_hcnt ? hcnt : max_speed_hcnt;
         i2c->ss_scl_lcnt = lcnt >= max_speed_lcnt ? lcnt : max_speed_lcnt;
-        //iprintf("ss_scl_hcnt: %ld\nss_scl_lcnt: %ld\n", i2c->ss_scl_hcnt, i2c->ss_scl_lcnt);
     }else{
         // Minimum timing requirements with respect to fs_spklen
         i2c->fs_scl_hcnt &= 0xFFFF0000;
         i2c->fs_scl_hcnt |= (hcnt >= max_speed_hcnt ? hcnt : max_speed_hcnt) & 0x0000FFFF;
         i2c->fs_scl_lcnt &= 0xFFFF0000;
         i2c->fs_scl_lcnt |= (lcnt >= max_speed_lcnt ? lcnt : max_speed_lcnt) & 0x0000FFFF;
-        //iprintf("fs_scl_hcnt: %ld\nfs_scl_lcnt: %ld\n", i2c->fs_scl_hcnt, i2c->fs_scl_lcnt);
     }
-    //iprintf("Bitrate set!\n");
 }
 
+// NOTE: devAddr is passed right-shifted by one
 void RP2040I2C1Master::setTarget(unsigned char devAddr){
-    if(devAddr>>1 != (i2c->tar & 0xFF)){
+    // Check if lower 8 bits of the previous target device are the same as the provided one, shifted by 1
+    if(((devAddr>>1) & 0xFF) != (i2c->tar & 0xFF)){
         FastGlobalIrqLock lock;
-        //set TDMAE to 0
-        //set ic_enable.abort to 1
-        //wait for abort interrupt
-        uint32_t prev_dma_cr = i2c->dma_cr;
+        uint32_t prev_dma_cr = i2c->dma_cr; // Memorize previous dma control settings
         i2c->dma_cr &= ~(1<<I2C_IC_DMA_CR_TDMAE_LSB);
         i2c->enable |= I2C_IC_ENABLE_ABORT_BITS;
 
@@ -160,7 +162,6 @@ void RP2040I2C1Master::setTarget(unsigned char devAddr){
         while(i2c->enable_status & I2C_IC_ENABLE_STATUS_IC_EN_BITS)
             ;
         i2c->tar = devAddr>>1;
-        i2c->tar |= 1<<I2C_IC_TAR_GC_OR_START_LSB;
         i2c->enable = 1;
         while(!(i2c->enable_status & I2C_IC_ENABLE_STATUS_IC_EN_BITS))
             ;
@@ -184,7 +185,7 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
 
     dma_hw->ch[txDmaCh].read_addr=reinterpret_cast<unsigned int>(&sendDummy);
     dma_hw->ch[txDmaCh].write_addr=reinterpret_cast<unsigned int>(&i2c->data_cmd);
-    dma_hw->ch[txDmaCh].transfer_count=len-1;
+    dma_hw->ch[txDmaCh].transfer_count=len;
     dma_hw->ch[txDmaCh].al1_ctrl=(txDreq<<DMA_CH0_CTRL_TRIG_TREQ_SEL_LSB)
                                 |(txDmaCh<<DMA_CH0_CTRL_TRIG_CHAIN_TO_LSB) // disable chaining!!!!
                                 |(DMA_CH1_CTRL_TRIG_DATA_SIZE_VALUE_SIZE_HALFWORD<<DMA_CH0_CTRL_TRIG_DATA_SIZE_LSB)
@@ -193,42 +194,35 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
     dma_hw->ch[rxDmaCh].read_addr=reinterpret_cast<unsigned int>(&i2c->data_cmd);
     dma_hw->ch[rxDmaCh].write_addr=reinterpret_cast<unsigned int>(data);
     dma_hw->ch[rxDmaCh].transfer_count=len;
-    /*
     dma_hw->ch[rxDmaCh].al1_ctrl=(rxDreq<<DMA_CH1_CTRL_TRIG_TREQ_SEL_LSB)
                                 |(rxDmaCh<<DMA_CH1_CTRL_TRIG_CHAIN_TO_LSB) // disable chaining!!!!
                                 |DMA_CH1_CTRL_TRIG_INCR_WRITE_BITS
                                 |(datasz<<DMA_CH1_CTRL_TRIG_DATA_SIZE_LSB)
                                 |DMA_CH1_CTRL_TRIG_HIGH_PRIORITY_BITS
                                 |DMA_CH1_CTRL_TRIG_EN_BITS;
-                            */
-    i2c->dma_cr |= I2C_IC_DMA_CR_TDMAE_BITS | I2C_IC_DMA_CR_RDMAE_BITS;
-    /*
-    dma_hw->ch[rxDmaCh].ctrl_trig=(rxDreq<<DMA_CH1_CTRL_TRIG_TREQ_SEL_LSB)
-                                |(rxDmaCh<<DMA_CH1_CTRL_TRIG_CHAIN_TO_LSB) // disable chaining!!!!
-                                |DMA_CH1_CTRL_TRIG_INCR_WRITE_BITS
-                                |(datasz<<DMA_CH1_CTRL_TRIG_DATA_SIZE_LSB)
-                                |DMA_CH1_CTRL_TRIG_HIGH_PRIORITY_BITS
-                                |DMA_CH1_CTRL_TRIG_EN_BITS;
-                                */
+                                
+    i2c->dma_cr = I2C_IC_DMA_CR_TDMAE_BITS | I2C_IC_DMA_CR_RDMAE_BITS;
     {
         FastGlobalIrqLock lock;
-        i2c->intr_mask = I2C_IC_INTR_MASK_M_RX_OVER_BITS;
         dma_hw->multi_channel_trigger=(1U<<txDmaCh)|(1U<<rxDmaCh);
-        i2c->data_cmd = 0x1ff;
         while(true)
         {
             // TODO: Check for possible errors
-            if(!(dma_hw->ch[rxDmaCh].al1_ctrl & DMA_CH1_CTRL_TRIG_BUSY_BITS)) break;
+            if(!(dma_hw->ch[rxDmaCh].al1_ctrl & DMA_CH1_CTRL_TRIG_BUSY_BITS)&&!(dma_hw->ch[txDmaCh].al1_ctrl & DMA_CH1_CTRL_TRIG_BUSY_BITS)) break;
             waiting = Thread::IRQgetCurrentThread();
             while(waiting) Thread::IRQglobalIrqUnlockAndWait(lock);
         }
         dma_hw->ch[txDmaCh].al1_ctrl=0;
         dma_hw->ch[rxDmaCh].al1_ctrl=0;
     }
-    //stop();
     i2c->data_cmd = 0x0300;
-    i2c->dma_cr = 0;
-    iprintf("Recvd!\n");
+    if((i2c->raw_intr_stat & I2C_IC_RAW_INTR_STAT_TX_ABRT_BITS)
+            && ((i2c->tx_abrt_source & (I2C_IC_TX_ABRT_SOURCE_ABRT_7B_ADDR_NOACK_BITS | I2C_IC_TX_ABRT_SOURCE_ABRT_TXDATA_NOACK_BITS)))){
+        (void)i2c->clr_intr;
+        return false;
+    }
+    (void) i2c->clr_intr;
+    //iprintf("Recvd!\n");
     return true;
 }
 
@@ -264,12 +258,15 @@ bool RP2040I2C1Master::send(unsigned char address, const void *data, int len, bo
     // Wait until "Transmit Fifo [completely] Empty"
     while(!(i2c->status & I2C_IC_STATUS_TFE_BITS));
 
-    //while(!(i2c->status & I2C_IC_STATUS_MST_ACTIVITY_BITS));
+    if((i2c->raw_intr_stat & I2C_IC_RAW_INTR_STAT_TX_ABRT_BITS)
+            && ((i2c->tx_abrt_source & (I2C_IC_TX_ABRT_SOURCE_ABRT_7B_ADDR_NOACK_BITS | I2C_IC_TX_ABRT_SOURCE_ABRT_TXDATA_NOACK_BITS)))){
+        (void)i2c->clr_intr;
+        return false;
+    }
 
     //Clear all interrupts
     (void)i2c->clr_intr;
-    i2c->dma_cr = 0;
-    iprintf("Sent!\n");
+    //iprintf("Sent!\n");
     return true;
 }
 
@@ -279,6 +276,7 @@ RP2040I2C1Master::~RP2040I2C1Master()
     {
         GlobalIrqLock lock;
 
+        i2c->enable = 0;
 
         uint32_t var = i2c->clr_intr;
         
@@ -287,29 +285,22 @@ RP2040I2C1Master::~RP2040I2C1Master()
         RP2040Dma::IRQunregisterChannel(lock,txDmaCh,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
         RP2040Dma::IRQunregisterChannel(lock,rxDmaCh,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
 
-        // Set IC_ENABLE.ABORT to initiate controller shutdown
-        //i2c->enable = I2C_IC_ENABLE_ABORT_VALUE_ENABLED;
-        i2c->enable = 0;
     }
 }
 
 void RP2040I2C1Master::stop()
 {
-    //iprintf("[i2c] Sending stop signal...\n");
-    
     i2c->data_cmd = 1<<I2C_IC_DATA_CMD_STOP_LSB;
-    //iprintf("[i2c] Stop signal sent!\n");
 }
 
 void RP2040I2C1Master::IRQhandleDmaInterrupt()
 {
     uint32_t a = i2c->raw_intr_stat;
-    volatile uint32_t dummy = i2c->clr_rx_over;
     uint32_t b = dma_hw->ints0 | dma_hw->ints1;
     eq.IRQpost([=]{ printf("In IRQhandleDmaInterrupt\nraw_intr_stat: 0x%08x\ndma intr: 0x%08x\n", a, b);});
     (void) i2c->clr_intr;
-    dma_hw->intr = dma_hw->intr;
-    i2c->intr_mask = 0;
+    //i2c->intr_mask = 0;
+    //dma_hw->intr = dma_hw->intr;
     if(waiting)
     {
         waiting->IRQwakeup();
@@ -322,7 +313,7 @@ void RP2040I2C1Master::IRQhandleInterrupt() noexcept
     FastGlobalLockFromIrq lock;
     volatile uint32_t interrupts = i2c->raw_intr_stat;
     (void) i2c->clr_intr;
-    eq.IRQpost([=]{ printf("In IRQhandleInterrupt\nTriggered by: 0x%x\n", interrupts);});
+    //eq.IRQpost([=]{ printf("In IRQhandleInterrupt\nTriggered by: 0x%x\n", interrupts);});
     if(waiting)
     {
         waiting->IRQwakeup();

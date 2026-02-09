@@ -37,8 +37,6 @@ RP2040PL022DmaSpi::RP2040PL022DmaSpi(int number, unsigned int bitrate, bool spo,
                                GpioPin si, GpioPin so, GpioPin sck, GpioPin ce) noexcept
 {
     iprintf("Initializing SPI...\n");
-    iprintf("irq %d enabled? %d\n", SPI0_IRQ_IRQn, IRQisIrqRegistered(SPI0_IRQ_IRQn));
-    iprintf("irq %d enabled? %d\n", SPI1_IRQ_IRQn, IRQisIrqRegistered(SPI1_IRQ_IRQn));
     {
         GlobalIrqLock lock;
         IRQn_Type irqn;

@@ -63,8 +63,8 @@ FixedEventQueue<20> eq;
 
 int main()
 {
-    thread t([]{ eq.run(); });
-    t.detach();
+    //thread t([]{ eq.run(); });
+    //t.detach();
     iprintf("iprintf-o, ergo sum!\n");
 
     /*
