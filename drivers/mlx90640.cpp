@@ -78,8 +78,13 @@ bool MLX90640::setRefresh(MLX90640Refresh rr)
 
 bool MLX90640::readFrame(MLX90640RawFrame *rawFrame)
 {
+    iprintf("Starting frame read\n");
     for(int i=0;i<2;i++)
-        if(readSpecificSubFrame(i,rawFrame->subframe[i])==false) return false;
+        if(readSpecificSubFrame(i,rawFrame->subframe[i])==false){
+            iprintf("Ending frame read, res=false\n");
+            return false;
+        }
+    iprintf("Ending frame read, res=true\n");
     return true;
 }
 

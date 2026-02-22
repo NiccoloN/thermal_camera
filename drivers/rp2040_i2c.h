@@ -83,6 +83,7 @@ public:
      */
     bool probe(unsigned char address)
     {
+        return true;
         char data = 0;
         return send(address, &data, 1, true);
     }

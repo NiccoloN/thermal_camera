@@ -40,6 +40,22 @@
 #include <memory>
 #include <miosix.h>
 
+#include <application.h>
+#include <mxgui/misc_inst.h>
+#include <drivers/misc.h>
+#include <drivers/options_save.h>
+#include <images/batt100icon.h>
+#include <images/batt75icon.h>
+#include <images/batt50icon.h>
+#include <images/batt25icon.h>
+#include <images/batt0icon.h>
+#include <images/miosixlogoicon.h>
+#include <images/emissivityicon.h>
+#include <images/smallcelsiusicon.h>
+#include <images/largecelsiusicon.h>
+#include <string.h>
+
+
 using namespace std;
 using namespace mxgui;
 using namespace miosix;
@@ -63,33 +79,32 @@ FixedEventQueue<20> eq;
 
 int main()
 {
-    //thread t([]{ eq.run(); });
-    //t.detach();
-    iprintf("iprintf-o, ergo sum!\n");
+    thread t([]{ eq.run(); });
+    t.detach();
+    //iprintf("iprintf-o, ergo sum!\n");
+    
+    initializeBoard();
 
-    /*
-    RP2040I2C1Master i2c(sen_sda::getPin(), sen_scl::getPin(), 400);
+    //std::unique_ptr<miosix::RP2040I2C1Master> i2c = std::make_unique<RP2040I2C1Master> (sen_sda::getPin(), sen_scl::getPin(), 400);
+    
+    //MLX90640 sensor(i2c.get()); // QUESTA RIGA CREA PROBLEMI
 
-    //Thread::sleep(10);
-
-    char data[6] = "Dario";
+    //RP2040I2C1Master i2c(sen_sda::getPin(), sen_scl::getPin(), 400);
+    //char data[6] = "Dario";
     //i2c.stop();
-    //i2c.send(0x33, data, 1, false);
+    //i2c.send(0x33<<1, data, 1, false);
     //i2c.send(0x33, &data[1], 1, false);
     //i2c.send(0x33, data, 1, true);
-    i2c.send(0x33, data, 5, true);
+    //i2c.send(0x33<<1, data, 5, true);
 
-    for(;;){
+    /*for(;;){
         iprintf("End!\n");
         Thread::sleep(1000);
-    }
+    }*/
     //--------------------------
-    */
-
-    initializeBoard();
     
     #ifdef WITH_CPU_TIME_COUNTER
-    Thread *profiler = Thread::create(profilerMain, 2048U, Priority(0), nullptr, Thread::DETACHED);
+    //Thread *profiler = Thread::create(profilerMain, 2048U, Priority(0), nullptr, Thread::DETACHED);
     #endif
 
     auto& display=DisplayManager::instance().getDisplay();
@@ -103,7 +118,7 @@ int main()
     
     display.turnOff();
     #ifdef WITH_CPU_TIME_COUNTER
-    profiler->terminate();
+    //profiler->terminate();
     #endif
     shutdownBoard();
 }

@@ -204,8 +204,8 @@ void Application::processThreadMain()
         //auto t2=getTime();
         //iprintf("process = %lld\n",t2-t1);
     }
-    iprintf("processThread min free stack %d\n",
-            MemoryProfiling::getAbsoluteFreeStack());
+    //iprintf("processThread min free stack %d\n",
+      //      MemoryProfiling::getAbsoluteFreeStack());
 }
 
 void *Application::renderThreadMainTramp(void *p)
@@ -222,8 +222,8 @@ void Application::renderThreadMain()
         processedFrameQueue.get(processedFrame);
         ui.updateFrame(processedFrame);
     }
-    iprintf("renderThread min free stack %d\n",
-            MemoryProfiling::getAbsoluteFreeStack());
+    //iprintf("renderThread min free stack %d\n",
+      //      MemoryProfiling::getAbsoluteFreeStack());
 }
 
 /*void *Application::usbThreadMainTramp(void *p)

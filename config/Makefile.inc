@@ -1006,9 +1006,11 @@ endif
 CFLAGS_BASE   := -D_MIOSIX_BOARDNAME=\"$(OPT_BOARD)\" -D_DEFAULT_SOURCE=1 \
                  -ffunction-sections -fdata-sections \
                  -Wall -Werror=return-type -g
+                 #-fsanitize=undefined
 CXXFLAGS_BASE := -D_MIOSIX_BOARDNAME=\"$(OPT_BOARD)\" -D_DEFAULT_SOURCE=1 \
                  -std=c++23 -ffunction-sections -fdata-sections \
                  -Wall -Werror=return-type -g
+                 #-fsanitize=undefined
 
 ##
 ## Now two big switch-like constructs nested. The first lists all possible

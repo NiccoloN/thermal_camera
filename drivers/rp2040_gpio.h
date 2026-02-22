@@ -28,6 +28,7 @@
 #pragma once
 
 #include "interfaces/arch_registers.h"
+#include "rp2040/hardware/regs/io_bank0.h"
 
 namespace miosix {
 
@@ -69,6 +70,9 @@ enum class DriveStrength
 enum class Function
 {
     SPI     = IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_SPI0_RX,
+    SPI0_RX     = IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_SPI0_RX,
+    SPI0_TX     = IO_BANK0_GPIO7_CTRL_FUNCSEL_VALUE_SPI0_TX,
+    SPI0_CLK     = IO_BANK0_GPIO6_CTRL_FUNCSEL_VALUE_SPI0_SCLK,
     UART    = IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_UART0_TX,
     I2C0    = IO_BANK0_GPIO0_CTRL_FUNCSEL_VALUE_I2C0_SDA,
     I2C1    = IO_BANK0_GPIO2_CTRL_FUNCSEL_VALUE_I2C1_SDA, // TODO: Only for specific pins

@@ -32,6 +32,7 @@
 #include <line.h>
 #include "drivers/rp2040_gpio.h"
 #include "hwmapping.h"
+#include "kernel/lock.h"
 #include "rp2040_spi.h"
 
 using namespace std;
@@ -145,17 +146,14 @@ spiController(
     1000000,
     true,
     true,
-    Gpio<P0, 44>::getPin(), //random high pin
+    Gpio<P0, 99>::getPin(), //random high pin
     oled_mosi::getPin(),
     oled_sck::getPin(),
-    Gpio<P0, 44>::getPin() //random high pin
+    Gpio<P0, 99>::getPin() //random high pin
 )
 {
-
-    
     cs::function(Function::GPIO);
     cs::mode(Mode::OUTPUT);
-    
 
     dc::function(Function::GPIO);
     dc::mode(Mode::OUTPUT);
@@ -377,7 +375,10 @@ void DisplayErOledm015::doBeginPixelWrite()
     
 void DisplayErOledm015::doWritePixel(Color c)
 {
-    spiController.send(&c, 2, 8); // TODO: check
+    //spiController.send(&c, 2, 8); // TODO: check
+    Color shifted = (c>>8) & 0xFF;
+    spiController.send(&shifted, 1, 8); // TODO: check
+    spiController.send(&c, 1, 8); // TODO: check
     //spi1sendOnly(c>>8);
     //spi1sendOnly(c);
 }

@@ -67,13 +67,15 @@ public:
                 errorHandler(Error::UNEXPECTED);
         }
         initialize(bitrate,spo,sph);
+        //TODO
+        /*
         si.function(Function::SPI); si.mode(Mode::INPUT); si.fast();
         so.function(Function::SPI); so.mode(Mode::OUTPUT); so.fast();
         sck.function(Function::SPI); sck.mode(Mode::OUTPUT); sck.fast();
         if (ce.isValid())
         {
             ce.function(Function::SPI); ce.mode(Mode::OUTPUT); ce.fast();
-        }
+        }*/
     }
 
 private:

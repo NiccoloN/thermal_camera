@@ -66,12 +66,12 @@ RP2040PL022DmaSpi::RP2040PL022DmaSpi(int number, unsigned int bitrate, bool spo,
         IRQregisterIrq(lock,irqn,&RP2040PL022DmaSpi::IRQhandleInterrupt,this);
         txDmaCh=RP2040Dma::IRQregisterChannel(lock,&RP2040PL022DmaSpi::IRQhandleDmaInterrupt,this);
         rxDmaCh=RP2040Dma::IRQregisterChannel(lock,&RP2040PL022DmaSpi::IRQhandleDmaInterrupt,this);
-        si.function(Function::SPI); si.mode(Mode::INPUT); si.fast();
-        so.function(Function::SPI); so.mode(Mode::OUTPUT); so.fast();
-        sck.function(Function::SPI); sck.mode(Mode::OUTPUT); sck.fast();
+        si.function(Function::SPI0_RX); si.mode(Mode::INPUT); si.fast();
+        so.function(Function::SPI0_TX); so.mode(Mode::OUTPUT); so.fast();
+        sck.function(Function::SPI0_CLK); sck.mode(Mode::OUTPUT); sck.fast();
         if (ce.isValid())
         {
-            ce.function(Function::SPI); ce.mode(Mode::OUTPUT); ce.fast();
+            //ce.function(Function::SPI); ce.mode(Mode::OUTPUT); ce.fast();
         }
     }
     spi->cr0=(0<<SPI_SSPCR0_SCR_LSB)

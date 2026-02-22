@@ -303,10 +303,12 @@ void ApplicationUI<IOHandler>::drawPauseIndicator(mxgui::DrawingContext& dc)
 template<class IOHandler>
 void ApplicationUI<IOHandler>::drawUSBConnectionIndicator(mxgui::DrawingContext& dc)
 {
+    /*
     const mxgui::Point p0(80,1);
     const mxgui::Point p1(80+5,1+10);
-    /*if (ioHandler.checkUSBConnected()) dc.drawImage(p0,usbicon);
-    else dc.clear(p0,p1,mxgui::black);*/
+    if (ioHandler.checkUSBConnected()) dc.drawImage(p0,usbicon);
+    else dc.clear(p0,p1,mxgui::black);
+    */
 }
 
 template<class IOHandler>
@@ -382,10 +384,10 @@ void ApplicationUI<IOHandler>::_drawMenuEntry(mxgui::DrawingContext& dc, int i,
     if (value)
     {
         //! TODO CHECK
-        TextBox::draw(dc, mxgui::Point(0,top), mxgui::Point(74,top+fontHeight-1), label, 0, 0, 0, 3, 0);
-        TextBox::draw(dc, mxgui::Point(75,top), mxgui::Point(dc.getWidth()-1,top+fontHeight-1), value, 0, 0, 0, 0, 3);
+        TextBox::draw(dc, mxgui::Point(0,top), mxgui::Point(74,top+fontHeight-1), label, 0, 0, 3, 0, 0);
+        TextBox::draw(dc, mxgui::Point(75,top), mxgui::Point(dc.getWidth()-1,top+fontHeight-1), value, 0, 0, 0, 3, 0);
     } else {
-        TextBox::draw(dc, mxgui::Point(0,top), mxgui::Point(dc.getWidth()-1,top+fontHeight-1), label, 0, 0, 0, 3, 3);
+        TextBox::draw(dc, mxgui::Point(0,top), mxgui::Point(dc.getWidth()-1,top+fontHeight-1), label, 0, 0, 3, 3, 0);
     }
 }
 
@@ -397,7 +399,7 @@ void ApplicationUI<IOHandler>::drawMenuEntry(mxgui::DrawingContext& dc, int id)
     switch (id) {
         case Back: _drawMenuEntry(dc, Back, "Back"); break;
         case Emissivity:
-            sniprintf(buffer, 8, "%.2f", options.emissivity);
+            snprintf(buffer, 8, "%.2f", options.emissivity);
             _drawMenuEntry(dc, Emissivity, "Emissivity", buffer);
             break;
         case FrameRate:
@@ -460,9 +462,9 @@ void ApplicationUI<IOHandler>::enterShutdown(mxgui::DrawingContext& dc)
 {
     state = Shutdown;
     lifecycle = Quit;
-    #ifdef _MIOSIX
-    miosix::MemoryProfiling::print();
-    #endif
+    //#ifdef _MIOSIX
+    //miosix::MemoryProfiling::print();
+    //#endif
 }
 
 template<class IOHandler>

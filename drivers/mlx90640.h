@@ -72,7 +72,7 @@ public:
      * \param i2c pointer to I2C driver
      * \param devAddr MLX90640 device address
      */
-    MLX90640(miosix::RP2040I2C1Master *i2c, unsigned char devAddr=0x33); //WARN: CHECK ADDR
+    MLX90640(miosix::RP2040I2C1Master *i2c, unsigned char devAddr=0x33);
     
     /**
      * Set the sensor refresh rate
