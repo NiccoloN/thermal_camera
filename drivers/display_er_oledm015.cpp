@@ -288,7 +288,7 @@ void DisplayErOledm015::scanLine(Point p, const Color *colors, unsigned short le
     dc::high();
     cs::low();
     for(int i=0;i<length;i++) buffer2[i]=toBigEndian16(colors[i]);
-    spiController.send(buffer2, length, 8);
+    spiController.send(buffer2, length, 16);
     cs::high();
     delayUs(1);
 }
@@ -326,7 +326,7 @@ void DisplayErOledm015::drawImage(Point p, const ImageBase& img)
         {
             int chunkSize=min(imgSize,buffer2Size);
             for(int i=0;i<chunkSize;i++) buffer2[i]=toBigEndian16(imgData[i]);
-            spiController.send(buffer2, chunkSize, 8);
+            spiController.send(buffer2, chunkSize, 16);
             imgSize-=chunkSize;
             imgData+=chunkSize;
         }
