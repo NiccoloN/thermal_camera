@@ -63,6 +63,7 @@ RP2040I2C1Master::RP2040I2C1Master(GpioPin sda, GpioPin scl, int frequency)
          */
         i2c->con = I2C_IC_CON_RESET;
         i2c->con |= 1<<I2C_IC_CON_IC_RESTART_EN_LSB;
+        i2c->con |= 1<<I2C_IC_CON_TX_EMPTY_CTRL_LSB;
         i2c->intr_mask = 0;
 
         i2c->dma_cr = I2C_IC_DMA_CR_TDMAE_BITS | I2C_IC_DMA_CR_RDMAE_BITS;
@@ -128,16 +129,16 @@ void RP2040I2C1Master::setBitrate(int frequency){
 
     if(frequency <= 100){
         // Minimum timing requirements with respect to fs_spklen
-        i2c->ss_scl_hcnt = hcnt >= max_speed_hcnt ? hcnt : max_speed_hcnt;
-        i2c->ss_scl_lcnt = lcnt >= max_speed_lcnt ? lcnt : max_speed_lcnt;
-        //i2c->ss_scl_hcnt = max_speed_hcnt;
-        //i2c->ss_scl_lcnt = max_speed_lcnt;
+        //i2c->ss_scl_hcnt = hcnt >= max_speed_hcnt ? hcnt : max_speed_hcnt;
+        //i2c->ss_scl_lcnt = lcnt >= max_speed_lcnt ? lcnt : max_speed_lcnt;
+        i2c->ss_scl_hcnt = max_speed_hcnt;
+        i2c->ss_scl_lcnt = max_speed_lcnt;
     }else{
         // Minimum timing requirements with respect to fs_spklen
-        i2c->fs_scl_hcnt = (hcnt >= max_speed_hcnt ? hcnt : max_speed_hcnt) & 0x0000FFFF;
-        i2c->fs_scl_lcnt = (lcnt >= max_speed_lcnt ? lcnt : max_speed_lcnt) & 0x0000FFFF;
-        //i2c->fs_scl_hcnt = max_speed_hcnt;
-        //i2c->fs_scl_lcnt = max_speed_lcnt;
+        //i2c->fs_scl_hcnt = (hcnt >= max_speed_hcnt ? hcnt : max_speed_hcnt) & 0x0000FFFF;
+        //i2c->fs_scl_lcnt = (lcnt >= max_speed_lcnt ? lcnt : max_speed_lcnt) & 0x0000FFFF;
+        i2c->fs_scl_hcnt = max_speed_hcnt;
+        i2c->fs_scl_lcnt = max_speed_lcnt;
     }
 }
 
@@ -159,7 +160,7 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
     //iprintf("R 0x%x %d\n", address, len);
     setTarget(address);
 
-    unsigned short sendDummy = 0x0111;
+    unsigned short sendDummy = 0x015d;
 
     if(len == 1){
         i2c->data_cmd = sendDummy | 1<<I2C_IC_DATA_CMD_STOP_LSB;
@@ -170,16 +171,22 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
         return true;
     }
 
+    unsigned short reqs[len];
+    int i;
+    for(i=0;i<len-1;i++)reqs[i]=sendDummy;
+    reqs[i]=sendDummy | 1<<I2C_IC_DATA_CMD_STOP_LSB;
+
     unsigned int datasz=DMA_CH1_CTRL_TRIG_DATA_SIZE_VALUE_SIZE_BYTE;
     unsigned int rxDreq=i2c==i2c0_hw?33:35;
     unsigned int txDreq=i2c==i2c0_hw?32:34;
     
     i2c->dma_cr = I2C_IC_DMA_CR_TDMAE_BITS | I2C_IC_DMA_CR_RDMAE_BITS;
-    dma_hw->ch[txDmaCh].read_addr=reinterpret_cast<unsigned int>(&sendDummy);
+    dma_hw->ch[txDmaCh].read_addr=reinterpret_cast<unsigned int>(reqs);
     dma_hw->ch[txDmaCh].write_addr=reinterpret_cast<unsigned int>(&i2c->data_cmd);
-    dma_hw->ch[txDmaCh].transfer_count=len-1;
+    dma_hw->ch[txDmaCh].transfer_count=len;
     dma_hw->ch[txDmaCh].al1_ctrl=(txDreq<<DMA_CH0_CTRL_TRIG_TREQ_SEL_LSB)
                                 |(txDmaCh<<DMA_CH0_CTRL_TRIG_CHAIN_TO_LSB) // disable chaining!!!!
+                                |DMA_CH1_CTRL_TRIG_INCR_READ_BITS
                                 |(DMA_CH1_CTRL_TRIG_DATA_SIZE_VALUE_SIZE_HALFWORD<<DMA_CH0_CTRL_TRIG_DATA_SIZE_LSB) // Send 16 bits, to send CMD=1 too
                                 |DMA_CH0_CTRL_TRIG_EN_BITS;
 
@@ -200,13 +207,21 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
         {
             // TODO: Check for possible errors
             if(!(dma_hw->ch[txDmaCh].al1_ctrl & DMA_CH1_CTRL_TRIG_BUSY_BITS)){
-                while (!(i2c->status & I2C_IC_STATUS_TFNF_BITS));
+                //while(!(i2c->status & I2C_IC_STATUS_TFNF_BITS));
+                //i2c->data_cmd = 0x0311; // Stop and read last;
+                /*
+                while(!(i2c->status & I2C_IC_STATUS_TFNF_BITS));
                 i2c->data_cmd = 0x0311; // Stop and read last;
+                while(!(i2c->status & I2C_IC_STATUS_RFNE_BITS));
+                *((uint8_t *)data) = i2c->data_cmd;
+                */
             }
             if(!(dma_hw->ch[rxDmaCh].al1_ctrl & DMA_CH1_CTRL_TRIG_BUSY_BITS)) break;
             waiting = Thread::IRQgetCurrentThread();
             while(waiting) Thread::IRQglobalIrqUnlockAndWait(lock);
         }
+        //i2c->data_cmd = 0x0300; // Stop and read last;
+        (void) i2c->clr_intr;
         dma_hw->ch[txDmaCh].al1_ctrl=0;
         dma_hw->ch[rxDmaCh].al1_ctrl=0;
     }
@@ -289,6 +304,8 @@ RP2040I2C1Master::~RP2040I2C1Master()
         (void) i2c->clr_intr;
         
         reset_block(RESETS_RESET_I2C1_BITS);
+        clocks_hw->wake_en0&=~(CLOCKS_WAKE_EN0_CLK_SYS_I2C1_BITS);
+        clocks_hw->sleep_en0&=~(CLOCKS_SLEEP_EN0_CLK_SYS_I2C1_BITS);
         IRQunregisterIrq(lock,I2C1_IRQ_IRQn,&RP2040I2C1Master::IRQhandleInterrupt,this);
         RP2040Dma::IRQunregisterChannel(lock,txDmaCh,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
         RP2040Dma::IRQunregisterChannel(lock,rxDmaCh,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
@@ -306,7 +323,7 @@ void RP2040I2C1Master::IRQhandleDmaInterrupt()
     //uint32_t b = dma_hw->ints0 | dma_hw->ints1;
     //eq.IRQpost([=]{ printf("In IRQhandleDmaInterrupt\nraw_intr_stat: 0x%08x\ndma intr: 0x%08x\n", a, b);});
     //(void) i2c->clr_intr;
-    //dma_hw->intr = dma_hw->intr; // if i uncomment this, it stops working, bah
+    //dma_hw->intr = dma_hw->intr;
     dma_hw->ints0 = (1U << txDmaCh) | (1U << rxDmaCh);
     dma_hw->ints1 = (1U << txDmaCh) | (1U << rxDmaCh);
     if(waiting)
@@ -320,7 +337,6 @@ void RP2040I2C1Master::IRQhandleInterrupt() noexcept
 {
     FastGlobalLockFromIrq lock;
     (void) i2c->clr_intr;
-    //eq.IRQpost([=]{ printf("In IRQhandleInterrupt\nTriggered by: 0x%x\n", interrupts);});
     if(waiting)
     {
         waiting->IRQwakeup();

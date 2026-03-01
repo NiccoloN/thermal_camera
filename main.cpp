@@ -79,15 +79,16 @@ FixedEventQueue<20> eq;
 
 int main()
 {
-    thread t([]{ eq.run(); });
-    t.detach();
+    //thread t([]{ eq.run(); });
+    //t.detach();
     //iprintf("iprintf-o, ergo sum!\n");
     
     initializeBoard();
 
     //std::unique_ptr<miosix::RP2040I2C1Master> i2c = std::make_unique<RP2040I2C1Master> (sen_sda::getPin(), sen_scl::getPin(), 400);
-    
-    //MLX90640 sensor(i2c.get()); // QUESTA RIGA CREA PROBLEMI
+    //printf("%ld\n", sizeof(MLX90640));
+    //MLX90640 *sensor = new MLX90640(i2c.get()); // QUESTA RIGA CREA PROBLEMI
+    //for(;;);
 
     //RP2040I2C1Master i2c(sen_sda::getPin(), sen_scl::getPin(), 400);
     //char data[6] = "Dario";
@@ -104,7 +105,7 @@ int main()
     //--------------------------
     
     #ifdef WITH_CPU_TIME_COUNTER
-    //Thread *profiler = Thread::create(profilerMain, 2048U, Priority(0), nullptr, Thread::DETACHED);
+    Thread *profiler = Thread::create(profilerMain, 2048U, Priority(0), nullptr, Thread::DETACHED);
     #endif
 
     auto& display=DisplayManager::instance().getDisplay();
@@ -118,7 +119,7 @@ int main()
     
     display.turnOff();
     #ifdef WITH_CPU_TIME_COUNTER
-    //profiler->terminate();
+    profiler->terminate();
     #endif
     shutdownBoard();
 }

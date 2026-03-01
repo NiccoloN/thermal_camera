@@ -43,10 +43,10 @@ using sen_scl     = Gpio<P0,3>;  //I2C1
 using sen_sda     = Gpio<P0,2>;  //I2C1
 
 //Buttons and power management
-using up_btn      = Gpio<P0,14>;
-using on_btn      = Gpio<P0,14>;
-using keep_on     = Gpio<P0,14>;
-using vbatt_sense = Gpio<P0,14>;  
+using up_btn      = Gpio<P0,10>;
+using on_btn      = Gpio<P0,11>;
+using keep_on     = Gpio<P0,12>;
+using vbatt_sense = Gpio<P0,13>;  
 
 //USB
 /*

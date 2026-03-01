@@ -33,19 +33,20 @@ using namespace miosix;
 
 void initializeBoard()
 {
-    /*
+    
     {
         FastGlobalIrqLock dLock;
-        RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
-        RCC_SYNC();
+        //RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
+        //RCC_SYNC();
         up_btn::mode(Mode::INPUT_PULL_UP);
         on_btn::mode(Mode::INPUT_PULL_DOWN);
         keep_on::mode(Mode::OUTPUT);
         keep_on::high();
-        vbatt_sense::mode(Mode::INPUT_ANALOG);
-        flash_cs::mode(Mode::OUTPUT);
-        flash_cs::high();
+        //vbatt_sense::mode(Mode::INPUT_ANALOG);
+        //flash_cs::mode(Mode::OUTPUT);
+        //flash_cs::high();
     }
+    /*
     ADC1->CR1=0;
     ADC1->CR2=0; //Keep the ADC OFF to save power
     ADC1->SMPR2=ADC_SMPR2_SMP1_2; //Sample for 85 cycles channel 1 (battery)

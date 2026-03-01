@@ -27,11 +27,13 @@
 
 #include "mlx90640.h"
 #include "applicationui.h"
+#include "util/util.h"
 #include <cstdio>
 #include <thread>
 #include <stdexcept>
 #include <chrono>
 #include <interfaces/endianness.h>
+#include <cstring>
 
 using namespace std;
 using namespace miosix;
@@ -53,8 +55,24 @@ MLX90640::MLX90640(RP2040I2C1Master *i2c, unsigned char devAddr)
     // Wait 80ms as recommended by the datasheet.
     // If we don't do this, on some sensors the EEPROM readout might be glitched
     std::this_thread::sleep_for(80ms);
+
+    unsigned short cr1;
+    bool res = read(0x8000,1,&cr1);
+
+    iprintf("%d %d\n", cr1, res);
+
+    //getchar();
+
+    memset(eeprom.eeprom, 0, 2*MLX90640EEPROM::eepromSize);
+    //read(0x2400,MLX90640EEPROM::eepromSize,eeprom.eeprom);
+    //memDump(eeprom.eeprom, 2*MLX90640EEPROM::eepromSize);
+    //getchar();
+
     if(read(0x2400,MLX90640EEPROM::eepromSize,eeprom.eeprom)==false || MLX90640_ExtractParameters(eeprom.eeprom,&params))
         throw runtime_error("EEPROM failure");
+    //memDump(eeprom.eeprom, 2*MLX90640EEPROM::eepromSize);
+    iprintf("TAPPOSTO\n");
+    //getchar();
     if(setRefresh(MLX90640Refresh::R1)==false)
         throw runtime_error("I2C failure");
     lastFrameReady=chrono::system_clock::now();

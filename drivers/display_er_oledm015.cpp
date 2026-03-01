@@ -146,10 +146,10 @@ spiController(
     1000000,
     true,
     true,
-    Gpio<P0, 99>::getPin(), //random high pin
+    Gpio<P0, 15>::getPin(), //random high pin
     oled_mosi::getPin(),
     oled_sck::getPin(),
-    Gpio<P0, 99>::getPin() //random high pin
+    Gpio<P0, 16>::getPin() //random high pin
 )
 {
     cs::function(Function::GPIO);
