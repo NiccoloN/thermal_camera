@@ -136,7 +136,7 @@ private:
     volatile bool error;     ///< Set to true by IRQ on error
     miosix::Thread *waiting=nullptr; ///< Thread waiting for an operation to complete
     i2c_hw_t *i2c;
-    unsigned char txDmaCh, rxDmaCh;
+    unsigned char txDmaCh, rxDmaCh, finisherDmaCh;
 };
 
 } //namespace miosix

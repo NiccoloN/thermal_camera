@@ -37,6 +37,7 @@ RP2040I2C1Master::RP2040I2C1Master(GpioPin sda, GpioPin scl, int frequency)
 
         IRQregisterIrq(lock,irqn,&RP2040I2C1Master::IRQhandleInterrupt,this);
         txDmaCh=RP2040Dma::IRQregisterChannel(lock,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
+        finisherDmaCh=RP2040Dma::IRQregisterChannel(lock,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
         rxDmaCh=RP2040Dma::IRQregisterChannel(lock,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
 
         i2c = i2c1_hw;
@@ -63,7 +64,6 @@ RP2040I2C1Master::RP2040I2C1Master(GpioPin sda, GpioPin scl, int frequency)
          */
         i2c->con = I2C_IC_CON_RESET;
         i2c->con |= 1<<I2C_IC_CON_IC_RESTART_EN_LSB;
-        i2c->con |= 1<<I2C_IC_CON_TX_EMPTY_CTRL_LSB;
         i2c->intr_mask = 0;
 
         i2c->dma_cr = I2C_IC_DMA_CR_TDMAE_BITS | I2C_IC_DMA_CR_RDMAE_BITS;
@@ -160,7 +160,8 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
     //iprintf("R 0x%x %d\n", address, len);
     setTarget(address);
 
-    unsigned short sendDummy = 0x015d;
+    unsigned short sendDummy = 0x0111;
+    unsigned short stopDummy = 0x0311;
 
     if(len == 1){
         i2c->data_cmd = sendDummy | 1<<I2C_IC_DATA_CMD_STOP_LSB;
@@ -171,22 +172,24 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
         return true;
     }
 
-    unsigned short reqs[len];
-    int i;
-    for(i=0;i<len-1;i++)reqs[i]=sendDummy;
-    reqs[i]=sendDummy | 1<<I2C_IC_DATA_CMD_STOP_LSB;
-
     unsigned int datasz=DMA_CH1_CTRL_TRIG_DATA_SIZE_VALUE_SIZE_BYTE;
     unsigned int rxDreq=i2c==i2c0_hw?33:35;
     unsigned int txDreq=i2c==i2c0_hw?32:34;
     
     i2c->dma_cr = I2C_IC_DMA_CR_TDMAE_BITS | I2C_IC_DMA_CR_RDMAE_BITS;
-    dma_hw->ch[txDmaCh].read_addr=reinterpret_cast<unsigned int>(reqs);
+    dma_hw->ch[txDmaCh].read_addr=reinterpret_cast<unsigned int>(&sendDummy);
     dma_hw->ch[txDmaCh].write_addr=reinterpret_cast<unsigned int>(&i2c->data_cmd);
-    dma_hw->ch[txDmaCh].transfer_count=len;
+    dma_hw->ch[txDmaCh].transfer_count=len-1;
     dma_hw->ch[txDmaCh].al1_ctrl=(txDreq<<DMA_CH0_CTRL_TRIG_TREQ_SEL_LSB)
-                                |(txDmaCh<<DMA_CH0_CTRL_TRIG_CHAIN_TO_LSB) // disable chaining!!!!
-                                |DMA_CH1_CTRL_TRIG_INCR_READ_BITS
+                                |(finisherDmaCh<<DMA_CH0_CTRL_TRIG_CHAIN_TO_LSB) // chain to finisher
+                                |(DMA_CH1_CTRL_TRIG_DATA_SIZE_VALUE_SIZE_HALFWORD<<DMA_CH0_CTRL_TRIG_DATA_SIZE_LSB) // Send 16 bits, to send CMD=1 too
+                                |DMA_CH0_CTRL_TRIG_EN_BITS;
+
+    dma_hw->ch[finisherDmaCh].read_addr=reinterpret_cast<unsigned int>(&stopDummy);
+    dma_hw->ch[finisherDmaCh].write_addr=reinterpret_cast<unsigned int>(&i2c->data_cmd);
+    dma_hw->ch[finisherDmaCh].transfer_count=1;
+    dma_hw->ch[finisherDmaCh].al1_ctrl=(txDreq<<DMA_CH0_CTRL_TRIG_TREQ_SEL_LSB)
+                                |(finisherDmaCh<<DMA_CH0_CTRL_TRIG_CHAIN_TO_LSB) // disable chaining!!!!
                                 |(DMA_CH1_CTRL_TRIG_DATA_SIZE_VALUE_SIZE_HALFWORD<<DMA_CH0_CTRL_TRIG_DATA_SIZE_LSB) // Send 16 bits, to send CMD=1 too
                                 |DMA_CH0_CTRL_TRIG_EN_BITS;
 
@@ -202,7 +205,7 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
                                 
     {
         FastGlobalIrqLock lock;
-        dma_hw->multi_channel_trigger|=(1U<<txDmaCh)|(1U<<rxDmaCh);
+        dma_hw->multi_channel_trigger=(1U<<txDmaCh)|(1U<<rxDmaCh);
         while(true)
         {
             // TODO: Check for possible errors
@@ -221,8 +224,8 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
             while(waiting) Thread::IRQglobalIrqUnlockAndWait(lock);
         }
         //i2c->data_cmd = 0x0300; // Stop and read last;
-        (void) i2c->clr_intr;
         dma_hw->ch[txDmaCh].al1_ctrl=0;
+        dma_hw->ch[finisherDmaCh].al1_ctrl=0;
         dma_hw->ch[rxDmaCh].al1_ctrl=0;
     }
 
@@ -233,9 +236,10 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
 
     if(aborted) iprintf("Recv aborted. Reason: 0x%08lx\n", i2c->tx_abrt_source);
 
+    (void) i2c->clr_intr;
+
     //iprintf("R!\n");
 
-    (void) i2c->clr_intr;
     return !aborted;
 }
 
@@ -251,23 +255,36 @@ bool RP2040I2C1Master::send(unsigned char address, const void *data, int len, bo
     }else{
         unsigned int datasz=DMA_CH0_CTRL_TRIG_DATA_SIZE_VALUE_SIZE_BYTE;
         unsigned int txDreq=i2c==i2c0_hw?32:34;
-        dma_hw->ch[txDmaCh].read_addr=reinterpret_cast<unsigned int>(data);
+        dma_hw->ch[txDmaCh].read_addr=reinterpret_cast<unsigned int>(&(((uint8_t *)data)[1]));
         dma_hw->ch[txDmaCh].write_addr=reinterpret_cast<unsigned int>(&i2c->data_cmd);
-        dma_hw->ch[txDmaCh].transfer_count= (sendStop ? len-1 : len);
+        dma_hw->ch[txDmaCh].transfer_count=len-2;
+        dma_hw->ch[txDmaCh].al1_ctrl=(txDreq<<DMA_CH0_CTRL_TRIG_TREQ_SEL_LSB)
+                               |finisherDmaCh<<DMA_CH0_CTRL_TRIG_CHAIN_TO_LSB
+                               |DMA_CH0_CTRL_TRIG_INCR_READ_BITS
+                               |(datasz<<DMA_CH0_CTRL_TRIG_DATA_SIZE_LSB)
+                               |DMA_CH0_CTRL_TRIG_EN_BITS;
+
+        uint16_t stopDummy = (sendStop ? 1 : 0)<<I2C_IC_DATA_CMD_STOP_LSB | ((uint8_t *)data)[len-1];
+        dma_hw->ch[finisherDmaCh].read_addr=reinterpret_cast<unsigned int>(&stopDummy);
+        dma_hw->ch[finisherDmaCh].write_addr=reinterpret_cast<unsigned int>(&i2c->data_cmd);
+        dma_hw->ch[finisherDmaCh].transfer_count=1;
+        dma_hw->ch[finisherDmaCh].al1_ctrl=(txDreq<<DMA_CH0_CTRL_TRIG_TREQ_SEL_LSB)
+                                    |(finisherDmaCh<<DMA_CH0_CTRL_TRIG_CHAIN_TO_LSB) // disable chaining!!!!
+                                    |(DMA_CH1_CTRL_TRIG_DATA_SIZE_VALUE_SIZE_HALFWORD<<DMA_CH0_CTRL_TRIG_DATA_SIZE_LSB) // Send 16 bits, to send CMD=1 too
+                                    |DMA_CH0_CTRL_TRIG_EN_BITS;
         {
             FastGlobalIrqLock lock;
-            dma_hw->ch[txDmaCh].ctrl_trig=(txDreq<<DMA_CH0_CTRL_TRIG_TREQ_SEL_LSB)
-                                   |(txDmaCh<<DMA_CH0_CTRL_TRIG_CHAIN_TO_LSB) // disable chaining!!!!
-                                   |DMA_CH0_CTRL_TRIG_INCR_READ_BITS
-                                   |(datasz<<DMA_CH0_CTRL_TRIG_DATA_SIZE_LSB)
-                                   |DMA_CH0_CTRL_TRIG_EN_BITS;
+            i2c->data_cmd = 0x00000000 | (0xFF & ((uint8_t *)data)[0]);
+            dma_hw->multi_channel_trigger=(1U<<(len > 2 ? txDmaCh : finisherDmaCh));
             while(true)
             {
-                if(!((dma_hw->ch[txDmaCh].al1_ctrl)&DMA_CH0_CTRL_TRIG_BUSY_BITS)){
+                if(!((dma_hw->ch[finisherDmaCh].al1_ctrl)&DMA_CH0_CTRL_TRIG_BUSY_BITS)){
+                    /*
                     if(sendStop){
                         while (!(i2c->status & I2C_IC_STATUS_TFNF_BITS));
                         i2c->data_cmd = 1<<I2C_IC_DATA_CMD_STOP_LSB | ((uint8_t *)data)[len-1];
                     }
+                    */
                     break;
                 }
 
@@ -275,6 +292,7 @@ bool RP2040I2C1Master::send(unsigned char address, const void *data, int len, bo
                 while(waiting) Thread::IRQglobalIrqUnlockAndWait(lock);
             }
             dma_hw->ch[txDmaCh].al1_ctrl=0;
+            dma_hw->ch[finisherDmaCh].al1_ctrl=0;
         }
     }
     
@@ -319,13 +337,15 @@ void RP2040I2C1Master::stop()
 
 void RP2040I2C1Master::IRQhandleDmaInterrupt()
 {
-    //uint32_t a = i2c->raw_intr_stat;
-    //uint32_t b = dma_hw->ints0 | dma_hw->ints1;
-    //eq.IRQpost([=]{ printf("In IRQhandleDmaInterrupt\nraw_intr_stat: 0x%08x\ndma intr: 0x%08x\n", a, b);});
+    /*
+    uint32_t a = i2c->raw_intr_stat;
+    uint32_t b = dma_hw->ints0 | dma_hw->ints1;
+    eq.IRQpost([=]{ printf("In IRQhandleDmaInterrupt\nraw_intr_stat: 0x%08x\ndma intr: 0x%08x\n", a, b);});
+    */
     //(void) i2c->clr_intr;
     //dma_hw->intr = dma_hw->intr;
-    dma_hw->ints0 = (1U << txDmaCh) | (1U << rxDmaCh);
-    dma_hw->ints1 = (1U << txDmaCh) | (1U << rxDmaCh);
+    //dma_hw->ints0 = (1U << txDmaCh) | (1U << rxDmaCh) | (1U << finisherDmaCh);
+    //dma_hw->ints1 = (1U << txDmaCh) | (1U << rxDmaCh) | (1U << finisherDmaCh);
     if(waiting)
     {
         waiting->IRQwakeup();

@@ -63,7 +63,7 @@ MLX90640::MLX90640(RP2040I2C1Master *i2c, unsigned char devAddr)
 
     //getchar();
 
-    memset(eeprom.eeprom, 0, 2*MLX90640EEPROM::eepromSize);
+    //memset(eeprom.eeprom, 0, 2*MLX90640EEPROM::eepromSize);
     //read(0x2400,MLX90640EEPROM::eepromSize,eeprom.eeprom);
     //memDump(eeprom.eeprom, 2*MLX90640EEPROM::eepromSize);
     //getchar();

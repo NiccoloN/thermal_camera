@@ -87,8 +87,7 @@ int main()
 
     //std::unique_ptr<miosix::RP2040I2C1Master> i2c = std::make_unique<RP2040I2C1Master> (sen_sda::getPin(), sen_scl::getPin(), 400);
     //printf("%ld\n", sizeof(MLX90640));
-    //MLX90640 *sensor = new MLX90640(i2c.get()); // QUESTA RIGA CREA PROBLEMI
-    //for(;;);
+    //MLX90640 *sensor = new MLX90640(i2c.get());
 
     //RP2040I2C1Master i2c(sen_sda::getPin(), sen_scl::getPin(), 400);
     //char data[6] = "Dario";
