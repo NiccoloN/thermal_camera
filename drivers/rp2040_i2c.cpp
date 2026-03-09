@@ -15,7 +15,6 @@
 #include "interfaces/gpio.h"
 #include "kernel/thread.h"
 #include "kernel/lock.h"
-#include <main.h>
 
 using namespace miosix;
 
@@ -157,7 +156,6 @@ void RP2040I2C1Master::setTarget(unsigned char devAddr){
 
 bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
 {
-    //iprintf("R 0x%x %d\n", address, len);
     setTarget(address);
 
     unsigned short sendDummy = 0x0111;
@@ -208,28 +206,14 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
         dma_hw->multi_channel_trigger=(1U<<txDmaCh)|(1U<<rxDmaCh);
         while(true)
         {
-            // TODO: Check for possible errors
-            if(!(dma_hw->ch[txDmaCh].al1_ctrl & DMA_CH1_CTRL_TRIG_BUSY_BITS)){
-                //while(!(i2c->status & I2C_IC_STATUS_TFNF_BITS));
-                //i2c->data_cmd = 0x0311; // Stop and read last;
-                /*
-                while(!(i2c->status & I2C_IC_STATUS_TFNF_BITS));
-                i2c->data_cmd = 0x0311; // Stop and read last;
-                while(!(i2c->status & I2C_IC_STATUS_RFNE_BITS));
-                *((uint8_t *)data) = i2c->data_cmd;
-                */
-            }
             if(!(dma_hw->ch[rxDmaCh].al1_ctrl & DMA_CH1_CTRL_TRIG_BUSY_BITS)) break;
             waiting = Thread::IRQgetCurrentThread();
             while(waiting) Thread::IRQglobalIrqUnlockAndWait(lock);
         }
-        //i2c->data_cmd = 0x0300; // Stop and read last;
         dma_hw->ch[txDmaCh].al1_ctrl=0;
         dma_hw->ch[finisherDmaCh].al1_ctrl=0;
         dma_hw->ch[rxDmaCh].al1_ctrl=0;
     }
-
-    //while((i2c->status & I2C_IC_STATUS_RFNE_BITS)); // while it's not empty, wait for it to empty
 
     bool aborted = (i2c->raw_intr_stat & I2C_IC_RAW_INTR_STAT_TX_ABRT_BITS)
             && ((i2c->tx_abrt_source & (I2C_IC_TX_ABRT_SOURCE_ABRT_7B_ADDR_NOACK_BITS | I2C_IC_TX_ABRT_SOURCE_ABRT_TXDATA_NOACK_BITS)));
@@ -238,62 +222,36 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
 
     (void) i2c->clr_intr;
 
-    //iprintf("R!\n");
-
     return !aborted;
 }
 
 bool RP2040I2C1Master::send(unsigned char address, const void *data, int len, bool sendStop)
 {
-    //iprintf("S 0x%x %d (stop=%d)\n", address, len, sendStop);
     setTarget(address);
     
     if(len == 1){
-        uint32_t dataToBeSent = 0;
-        dataToBeSent = (sendStop ? 1<<I2C_IC_DATA_CMD_STOP_LSB : 0) | (*((uint8_t *)data) & 0xFF);
+        uint32_t dataToBeSent = (sendStop ? 1 : 0)<<I2C_IC_DATA_CMD_STOP_LSB  | (*((uint8_t *)data) & 0xFF);
         i2c->data_cmd = dataToBeSent;
     }else{
-        unsigned int datasz=DMA_CH0_CTRL_TRIG_DATA_SIZE_VALUE_SIZE_BYTE;
-        unsigned int txDreq=i2c==i2c0_hw?32:34;
-        dma_hw->ch[txDmaCh].read_addr=reinterpret_cast<unsigned int>(&(((uint8_t *)data)[1]));
-        dma_hw->ch[txDmaCh].write_addr=reinterpret_cast<unsigned int>(&i2c->data_cmd);
-        dma_hw->ch[txDmaCh].transfer_count=len-2;
-        dma_hw->ch[txDmaCh].al1_ctrl=(txDreq<<DMA_CH0_CTRL_TRIG_TREQ_SEL_LSB)
-                               |finisherDmaCh<<DMA_CH0_CTRL_TRIG_CHAIN_TO_LSB
-                               |DMA_CH0_CTRL_TRIG_INCR_READ_BITS
-                               |(datasz<<DMA_CH0_CTRL_TRIG_DATA_SIZE_LSB)
-                               |DMA_CH0_CTRL_TRIG_EN_BITS;
-
-        uint16_t stopDummy = (sendStop ? 1 : 0)<<I2C_IC_DATA_CMD_STOP_LSB | ((uint8_t *)data)[len-1];
-        dma_hw->ch[finisherDmaCh].read_addr=reinterpret_cast<unsigned int>(&stopDummy);
-        dma_hw->ch[finisherDmaCh].write_addr=reinterpret_cast<unsigned int>(&i2c->data_cmd);
-        dma_hw->ch[finisherDmaCh].transfer_count=1;
-        dma_hw->ch[finisherDmaCh].al1_ctrl=(txDreq<<DMA_CH0_CTRL_TRIG_TREQ_SEL_LSB)
-                                    |(finisherDmaCh<<DMA_CH0_CTRL_TRIG_CHAIN_TO_LSB) // disable chaining!!!!
-                                    |(DMA_CH1_CTRL_TRIG_DATA_SIZE_VALUE_SIZE_HALFWORD<<DMA_CH0_CTRL_TRIG_DATA_SIZE_LSB) // Send 16 bits, to send CMD=1 too
-                                    |DMA_CH0_CTRL_TRIG_EN_BITS;
+        FastGlobalIrqLock lock;
+        i2c->tx_tl = 3;
+        i2c->intr_mask |= 1<<I2C_IC_INTR_MASK_M_TX_EMPTY_LSB;
+        int curr = 0;
+        while(true)
         {
-            FastGlobalIrqLock lock;
-            i2c->data_cmd = 0x00000000 | (0xFF & ((uint8_t *)data)[0]);
-            dma_hw->multi_channel_trigger=(1U<<(len > 2 ? txDmaCh : finisherDmaCh));
-            while(true)
-            {
-                if(!((dma_hw->ch[finisherDmaCh].al1_ctrl)&DMA_CH0_CTRL_TRIG_BUSY_BITS)){
-                    /*
-                    if(sendStop){
-                        while (!(i2c->status & I2C_IC_STATUS_TFNF_BITS));
-                        i2c->data_cmd = 1<<I2C_IC_DATA_CMD_STOP_LSB | ((uint8_t *)data)[len-1];
-                    }
-                    */
-                    break;
-                }
-
-                waiting=Thread::IRQgetCurrentThread();
-                while(waiting) Thread::IRQglobalIrqUnlockAndWait(lock);
+            while(i2c->status & I2C_IC_STATUS_TFNF_BITS && curr < len){
+                if(curr < len-1)
+                    i2c->data_cmd = ((uint8_t *)data)[curr];
+                else
+                    i2c->data_cmd = (sendStop ? 1 : 0)<<I2C_IC_DATA_CMD_STOP_LSB | ((uint8_t *)data)[len-1];
+                curr++;
             }
-            dma_hw->ch[txDmaCh].al1_ctrl=0;
-            dma_hw->ch[finisherDmaCh].al1_ctrl=0;
+            if(curr == len) break;
+            waiting=Thread::IRQgetCurrentThread();
+            while(waiting) Thread::IRQglobalIrqUnlockAndWait(lock);
         }
+        i2c->intr_mask &= ~(1<<I2C_IC_INTR_MASK_M_TX_EMPTY_LSB);
+        i2c->tx_tl = 0;
     }
     
     // Wait until "Transmit Fifo [completely] Empty"
@@ -303,8 +261,6 @@ bool RP2040I2C1Master::send(unsigned char address, const void *data, int len, bo
             && ((i2c->tx_abrt_source & (I2C_IC_TX_ABRT_SOURCE_ABRT_7B_ADDR_NOACK_BITS | I2C_IC_TX_ABRT_SOURCE_ABRT_TXDATA_NOACK_BITS)));
 
     if(aborted) iprintf("Send aborted. Reason: 0x%08lx\n", i2c->tx_abrt_source);
-
-    //iprintf("S!\n");
 
     //Clear all interrupts
     (void)i2c->clr_intr;
@@ -327,6 +283,7 @@ RP2040I2C1Master::~RP2040I2C1Master()
         IRQunregisterIrq(lock,I2C1_IRQ_IRQn,&RP2040I2C1Master::IRQhandleInterrupt,this);
         RP2040Dma::IRQunregisterChannel(lock,txDmaCh,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
         RP2040Dma::IRQunregisterChannel(lock,rxDmaCh,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
+        RP2040Dma::IRQunregisterChannel(lock,finisherDmaCh,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
     }
 }
 
@@ -337,15 +294,6 @@ void RP2040I2C1Master::stop()
 
 void RP2040I2C1Master::IRQhandleDmaInterrupt()
 {
-    /*
-    uint32_t a = i2c->raw_intr_stat;
-    uint32_t b = dma_hw->ints0 | dma_hw->ints1;
-    eq.IRQpost([=]{ printf("In IRQhandleDmaInterrupt\nraw_intr_stat: 0x%08x\ndma intr: 0x%08x\n", a, b);});
-    */
-    //(void) i2c->clr_intr;
-    //dma_hw->intr = dma_hw->intr;
-    //dma_hw->ints0 = (1U << txDmaCh) | (1U << rxDmaCh) | (1U << finisherDmaCh);
-    //dma_hw->ints1 = (1U << txDmaCh) | (1U << rxDmaCh) | (1U << finisherDmaCh);
     if(waiting)
     {
         waiting->IRQwakeup();

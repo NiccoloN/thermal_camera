@@ -26,6 +26,7 @@
  ***************************************************************************/
 
 #include "display_er_oledm015.h"
+#include <cstdint>
 #include <miosix.h>
 #include <interfaces/endianness.h>
 #include <algorithm>
@@ -55,9 +56,7 @@ void DisplayErOledm015::cmd(unsigned char c)
 {
     dc::low();
     cs::low();
-    //spiController.send(&c, 1, 8);
     spiController.sendRecv(c);
-    //delayUs(1);
     cs::high();
     delayUs(1);
 }
@@ -70,9 +69,7 @@ void DisplayErOledm015::dat(unsigned char d)
 {
     dc::high();
     cs::low();
-    //spiController.send(&d, 1, 8);
     spiController.sendRecv(d);
-    //delayUs(1);
     cs::high();
     delayUs(1);
 }
@@ -143,7 +140,7 @@ namespace mxgui {
 DisplayErOledm015::DisplayErOledm015() : buffer(nullptr), buffer2(nullptr),
 spiController(
     0,
-    1000000,
+    15000000,
     true,
     true,
     Gpio<P0, 15>::getPin(), //random high pin
@@ -153,10 +150,10 @@ spiController(
 )
 {
     cs::function(Function::GPIO);
-    cs::mode(Mode::OUTPUT);
+    cs::mode(Mode::OUTPUT); cs::getPin().fast();
 
     dc::function(Function::GPIO);
-    dc::mode(Mode::OUTPUT);
+    dc::mode(Mode::OUTPUT); dc::getPin().fast();
 
     res::high();
     Thread::sleep(1);
@@ -288,7 +285,8 @@ void DisplayErOledm015::scanLine(Point p, const Color *colors, unsigned short le
     dc::high();
     cs::low();
     for(int i=0;i<length;i++) buffer2[i]=toBigEndian16(colors[i]);
-    spiController.send(buffer2, length, 16);
+    unsigned char *toSend = (unsigned char *)buffer2;
+    spiController.send(toSend, 2*length, 8);
     cs::high();
     delayUs(1);
 }
@@ -322,11 +320,12 @@ void DisplayErOledm015::drawImage(Point p, const ImageBase& img)
         //enough memory to allocate a large enough buffer to hold the entire
         //image, so we'll have to split it in chunks
         int imgSize=img.getHeight()*img.getWidth();
+        unsigned char *toSend = (unsigned char *)buffer2;
         while(imgSize>0)
         {
             int chunkSize=min(imgSize,buffer2Size);
             for(int i=0;i<chunkSize;i++) buffer2[i]=toBigEndian16(imgData[i]);
-            spiController.send(buffer2, chunkSize, 16);
+            spiController.send(toSend, 2*chunkSize, 8);
             imgSize-=chunkSize;
             imgData+=chunkSize;
         }
@@ -375,12 +374,9 @@ void DisplayErOledm015::doBeginPixelWrite()
     
 void DisplayErOledm015::doWritePixel(Color c)
 {
-    //spiController.send(&c, 2, 8); // TODO: check
-    Color shifted = (c>>8) & 0xFF;
-    spiController.send(&shifted, 1, 8); // TODO: check
-    spiController.send(&c, 1, 8); // TODO: check
-    //spi1sendOnly(c>>8);
-    //spi1sendOnly(c);
+    uint16_t toSend = (c>>8 & 0x00FF)|(c<<8 & 0xFF00);
+    unsigned char *temp = (unsigned char *)&toSend;
+    spiController.send(temp, 2, 8);
 }
     
 void DisplayErOledm015::doEndPixelWrite()

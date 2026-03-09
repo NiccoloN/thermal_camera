@@ -56,7 +56,7 @@ using namespace mxgui;
 
 Application::Application(Display& display)
     : display(display), ui(*this, display, ButtonState(1^up_btn::value(),on_btn::value())),
-      i2c(make_unique<RP2040I2C1Master>(sen_sda::getPin(),sen_scl::getPin(),400)),
+      i2c(make_unique<RP2040I2C1Master>(sen_sda::getPin(),sen_scl::getPin(),1000)),
       sensor(make_unique<MLX90640>(i2c.get()))
       //usb(make_unique<USBCDC>(Priority()))
 {
@@ -68,8 +68,6 @@ Application::Application(Display& display)
 
 void Application::run()
 {
-    iprintf("[application.run()] Starting application\n");
-
     //High priority for sensor read, prevents I2C reads from starving
     sensorThread = Thread::create(Application::sensorThreadMainTramp, 2048U, Priority(DEFAULT_PRIORITY+1), static_cast<void*>(this), Thread::JOINABLE);
     //Low priority for processing, prevents display writes from starving
@@ -80,13 +78,11 @@ void Application::run()
     processedFrameQueue.get(processedFrame);
     delete processedFrame;
 
-    iprintf("[application.run()] Starting render thread\n");
     Thread *renderThread = Thread::create(Application::renderThreadMainTramp, 2048U, Priority(), static_cast<void*>(this), Thread::JOINABLE);
 
     //Thread *usbInteractiveThread = Thread::create(Application::usbThreadMainTramp, 2048U, Priority(), static_cast<void*>(this), Thread::JOINABLE);
     //Thread *usbOutputThread = Thread::create(Application::usbFrameOutputThreadMainTramp, 2048U, Priority(), static_cast<void*>(this), Thread::JOINABLE);
     
-    iprintf("[application.run()] Starting lifecycle\n");
     ui.lifecycle = UI::Ready;
     while (ui.lifecycle != UI::Quit) {
         //auto t1 = miosix::getTime();
@@ -199,6 +195,7 @@ void Application::processThreadMain()
         //auto t1=getTime();
         auto *processedFrame=new MLX90640Frame;
         sensor->processFrame(rawFrame,processedFrame,ui.options.emissivity);
+        delete rawFrame;
         processedFrameQueue.put(processedFrame);
         //usbOutputQueue.put(rawFrame);
         //auto t2=getTime();

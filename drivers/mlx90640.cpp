@@ -55,24 +55,8 @@ MLX90640::MLX90640(RP2040I2C1Master *i2c, unsigned char devAddr)
     // Wait 80ms as recommended by the datasheet.
     // If we don't do this, on some sensors the EEPROM readout might be glitched
     std::this_thread::sleep_for(80ms);
-
-    unsigned short cr1;
-    bool res = read(0x8000,1,&cr1);
-
-    iprintf("%d %d\n", cr1, res);
-
-    //getchar();
-
-    //memset(eeprom.eeprom, 0, 2*MLX90640EEPROM::eepromSize);
-    //read(0x2400,MLX90640EEPROM::eepromSize,eeprom.eeprom);
-    //memDump(eeprom.eeprom, 2*MLX90640EEPROM::eepromSize);
-    //getchar();
-
     if(read(0x2400,MLX90640EEPROM::eepromSize,eeprom.eeprom)==false || MLX90640_ExtractParameters(eeprom.eeprom,&params))
         throw runtime_error("EEPROM failure");
-    //memDump(eeprom.eeprom, 2*MLX90640EEPROM::eepromSize);
-    iprintf("TAPPOSTO\n");
-    //getchar();
     if(setRefresh(MLX90640Refresh::R1)==false)
         throw runtime_error("I2C failure");
     lastFrameReady=chrono::system_clock::now();
@@ -96,13 +80,8 @@ bool MLX90640::setRefresh(MLX90640Refresh rr)
 
 bool MLX90640::readFrame(MLX90640RawFrame *rawFrame)
 {
-    iprintf("Starting frame read\n");
     for(int i=0;i<2;i++)
-        if(readSpecificSubFrame(i,rawFrame->subframe[i])==false){
-            iprintf("Ending frame read, res=false\n");
-            return false;
-        }
-    iprintf("Ending frame read, res=true\n");
+        if(readSpecificSubFrame(i,rawFrame->subframe[i])==false) return false;
     return true;
 }
 
@@ -191,7 +170,5 @@ bool MLX90640::write(unsigned int addr, unsigned short data)
     unsigned short tx[2];
     tx[0]=toBigEndian16(addr);
     tx[1]=toBigEndian16(data);
-    //tx[0]=addr;
-    //tx[1]=data;
     return i2c->send(devAddr,&tx,4);
 }

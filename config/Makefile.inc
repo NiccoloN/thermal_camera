@@ -75,8 +75,8 @@ OPT_BOARD := rp2040_raspberry_pi_pico
 ## -O2 is recomended otherwise, as it provides a good balance between code
 ## size and speed
 ##
-OPT_OPTIMIZATION := -O0
-#OPT_OPTIMIZATION := -O2 -ffast-math
+#OPT_OPTIMIZATION := -O0
+OPT_OPTIMIZATION := -O2 -ffast-math
 #OPT_OPTIMIZATION := -O3
 #OPT_OPTIMIZATION := -Os
 

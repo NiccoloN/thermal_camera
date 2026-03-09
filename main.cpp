@@ -25,6 +25,7 @@
  *   along with this program; if not, see <http://www.gnu.org/licenses/>   *
  ***************************************************************************/
 
+#include <cstdint>
 #include <cstdio>
 #include "drivers/mlx90640.h"
 #include "drivers/rp2040_i2c.h"
@@ -33,28 +34,11 @@
 #include <application.h>
 #include <mxgui/display.h>
 #include <drivers/display_er_oledm015.h>
-#include <e20/e20.h>
 #include <thread>
 #include <drivers/hwmapping.h>
 #include <drivers/mlx90640.h>
 #include <memory>
 #include <miosix.h>
-
-#include <application.h>
-#include <mxgui/misc_inst.h>
-#include <drivers/misc.h>
-#include <drivers/options_save.h>
-#include <images/batt100icon.h>
-#include <images/batt75icon.h>
-#include <images/batt50icon.h>
-#include <images/batt25icon.h>
-#include <images/batt0icon.h>
-#include <images/miosixlogoicon.h>
-#include <images/emissivityicon.h>
-#include <images/smallcelsiusicon.h>
-#include <images/largecelsiusicon.h>
-#include <string.h>
-
 
 using namespace std;
 using namespace mxgui;
@@ -75,33 +59,15 @@ void *profilerMain(void *)
 }
 #endif
 
-FixedEventQueue<20> eq;
-
 int main()
 {
     //thread t([]{ eq.run(); });
     //t.detach();
-    //iprintf("iprintf-o, ergo sum!\n");
-    
     initializeBoard();
 
     //std::unique_ptr<miosix::RP2040I2C1Master> i2c = std::make_unique<RP2040I2C1Master> (sen_sda::getPin(), sen_scl::getPin(), 400);
     //printf("%ld\n", sizeof(MLX90640));
     //MLX90640 *sensor = new MLX90640(i2c.get());
-
-    //RP2040I2C1Master i2c(sen_sda::getPin(), sen_scl::getPin(), 400);
-    //char data[6] = "Dario";
-    //i2c.stop();
-    //i2c.send(0x33<<1, data, 1, false);
-    //i2c.send(0x33, &data[1], 1, false);
-    //i2c.send(0x33, data, 1, true);
-    //i2c.send(0x33<<1, data, 5, true);
-
-    /*for(;;){
-        iprintf("End!\n");
-        Thread::sleep(1000);
-    }*/
-    //--------------------------
     
     #ifdef WITH_CPU_TIME_COUNTER
     Thread *profiler = Thread::create(profilerMain, 2048U, Priority(0), nullptr, Thread::DETACHED);
