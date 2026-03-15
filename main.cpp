@@ -27,9 +27,6 @@
 
 #include <cstdint>
 #include <cstdio>
-#include "drivers/mlx90640.h"
-#include "drivers/rp2040_i2c.h"
-#include "miosix.h"
 #include <drivers/misc.h>
 #include <application.h>
 #include <mxgui/display.h>
@@ -61,13 +58,7 @@ void *profilerMain(void *)
 
 int main()
 {
-    //thread t([]{ eq.run(); });
-    //t.detach();
     initializeBoard();
-
-    //std::unique_ptr<miosix::RP2040I2C1Master> i2c = std::make_unique<RP2040I2C1Master> (sen_sda::getPin(), sen_scl::getPin(), 400);
-    //printf("%ld\n", sizeof(MLX90640));
-    //MLX90640 *sensor = new MLX90640(i2c.get());
     
     #ifdef WITH_CPU_TIME_COUNTER
     Thread *profiler = Thread::create(profilerMain, 2048U, Priority(0), nullptr, Thread::DETACHED);

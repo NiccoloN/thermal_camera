@@ -100,17 +100,6 @@ public:
     bool send(unsigned char address, const void *data, int len, bool sendStop);
     
     /**
-     * Wait until until an interrupt occurs during the send start bit and
-     * send address phases of the i2c communication.
-     * \return true if the operation was successful, false on error
-     */
-    //bool waitStatus1();
-    
-    /**
-     * Send a stop condition, waiting for its completion
-     */
-    void stop();
-    /**
      * Destructor
      */
     ~RP2040I2C1Master();

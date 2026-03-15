@@ -1,7 +1,5 @@
 #include "rp2040_i2c.h"
-#include "applicationui.h"
 #include "kernel/lock.h"
-#include "kernel/logging.h"
 #include "CMSIS/Device/RaspberryPi/RP2040/Include/RP2040.h"
 #include "board_settings.h"
 #include "drivers/rp2040_dma.h"
@@ -23,8 +21,6 @@ namespace miosix {
 // I2C driver implementation for rp2040 (master only)
 RP2040I2C1Master::RP2040I2C1Master(GpioPin sda, GpioPin scl, int frequency)
 {
-    iprintf("Initializing I2C...\n");
-    volatile uint32_t var;
     {
         GlobalIrqLock lock;
         IRQn_Type irqn;
@@ -35,20 +31,20 @@ RP2040I2C1Master::RP2040I2C1Master(GpioPin sda, GpioPin scl, int frequency)
         unreset_block_wait(RESETS_RESET_I2C1_BITS);
 
         IRQregisterIrq(lock,irqn,&RP2040I2C1Master::IRQhandleInterrupt,this);
-        txDmaCh=RP2040Dma::IRQregisterChannel(lock,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
-        finisherDmaCh=RP2040Dma::IRQregisterChannel(lock,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
+
+        // Used for sending read reqs
+        txDmaCh=RP2040Dma::IRQregisterChannel(lock,&RP2040I2C1Master::IRQhandleDmaInterrupt,this); 
+ 
+        // Used to send the finishing byte w/ the stop bit
+        finisherDmaCh=RP2040Dma::IRQregisterChannel(lock,&RP2040I2C1Master::IRQhandleDmaInterrupt,this); 
+        
+        // Used for actually reading the incoming data
         rxDmaCh=RP2040Dma::IRQregisterChannel(lock,&RP2040I2C1Master::IRQhandleDmaInterrupt,this);
 
         i2c = i2c1_hw;
         
         //Disable the peripheral in order to write the control register IC_CON
         i2c->enable = I2C_IC_ENABLE_RESET;
-
-        /*
-         * Bit 11 ("SPECIAL"): 0 => normal operation (NO START BYTE NOR GENERAL CALL);
-         * Bit 10 ("GC_OR_START"): 0 BUT it is ignored because SPECIAL is set to 1;
-         * Bit 9:0: 0..0 => where the target address will be placed;
-         */
         i2c->tar = I2C_IC_TAR_RESET;
 
         /*
@@ -61,38 +57,22 @@ RP2040I2C1Master::RP2040I2C1Master(GpioPin sda, GpioPin scl, int frequency)
          *  - fast (<= 1000Kbit/s) speed;
          *  - master mode enabled.
          */
-        i2c->con = I2C_IC_CON_RESET;
-        i2c->con |= 1<<I2C_IC_CON_IC_RESTART_EN_LSB;
+        i2c->con = I2C_IC_CON_RESET | 1<<I2C_IC_CON_IC_RESTART_EN_LSB;
         i2c->intr_mask = 0;
-
         i2c->dma_cr = I2C_IC_DMA_CR_TDMAE_BITS | I2C_IC_DMA_CR_RDMAE_BITS;
-
         sda.function(Function::I2C1); //sda.fast(); //sda.mode(Mode::INPUT_SCHMITT_TRIG_PULL_UP);   //sda.fast(); 
         scl.function(Function::I2C1_SCL); //sda.fast(); //scl.mode(Mode::INPUT_SCHMITT_TRIG_PULL_UP); //scl.fast();
 
-        setBitrate(frequency);
-
-        //Bus clear feature? (4.3.13.1)
-
-
-        i2c->enable |= 0x00000001;
-
     }
-    iprintf("I2C initialized!\n");
-    
+    setBitrate(frequency);
+    i2c->enable |= 0x00000001;
 }
 
-// TODO: check speed calculation
-// See reference @ 4.3.14.2
 // To be called ONLY when the device is disabled
 void RP2040I2C1Master::setBitrate(int frequency){
     unsigned long long oscfreq = cpuFrequency; //ic_clk frequency (Hz)
     unsigned long long MIN_SCL_HIGHtime; //minimum high period, ns
     unsigned long long MIN_SCL_LOWtime; //minimum low period, ns
-                                   //
-    //TODO: variable spike suppression, verify
-    //minimum 50ns spike suppression for SS and FS[+] modes
-    unsigned long spike_suppression_period = 50;
 
     i2c->con &= ~I2C_IC_CON_SPEED_BITS;
 
@@ -110,38 +90,25 @@ void RP2040I2C1Master::setBitrate(int frequency){
         MIN_SCL_LOWtime = 500;
     }
 
+    // Minimum 50ns spike suppression for SS and FS[+] modes
+    unsigned long spike_suppression_period = 50;
     unsigned char fs_spklen = ((unsigned long)spike_suppression_period * oscfreq)/1000000000;
 
     i2c->fs_spklen = fs_spklen;
 
-    //TODO: round-up (ceiling) in an elegant and efficient way
-    // Counters for fastest possible speed in the current speed configuration (SS, FS, FS+)
-    // in order to be compliant with the protocol specification.
-    // Effectively, being a counter of clock ticks, it acts as a lower bound for the counter settings,
-    // taking into account the minimum values defined @ 4.3.14.1
     uint32_t max_speed_hcnt = (oscfreq * MIN_SCL_HIGHtime) / 1000000000;
     uint32_t max_speed_lcnt = (oscfreq * MIN_SCL_LOWtime) / 1000000000;
 
-    // See reference @ 4.3.14.1
-    uint32_t hcnt = ((unsigned long) oscfreq / (frequency * 1000))/2 - fs_spklen - 7;
-    uint32_t lcnt = ((unsigned long) oscfreq / (frequency * 1000))/2 - 1;
-
     if(frequency <= 100){
-        // Minimum timing requirements with respect to fs_spklen
-        //i2c->ss_scl_hcnt = hcnt >= max_speed_hcnt ? hcnt : max_speed_hcnt;
-        //i2c->ss_scl_lcnt = lcnt >= max_speed_lcnt ? lcnt : max_speed_lcnt;
         i2c->ss_scl_hcnt = max_speed_hcnt;
         i2c->ss_scl_lcnt = max_speed_lcnt;
     }else{
-        // Minimum timing requirements with respect to fs_spklen
-        //i2c->fs_scl_hcnt = (hcnt >= max_speed_hcnt ? hcnt : max_speed_hcnt) & 0x0000FFFF;
-        //i2c->fs_scl_lcnt = (lcnt >= max_speed_lcnt ? lcnt : max_speed_lcnt) & 0x0000FFFF;
         i2c->fs_scl_hcnt = max_speed_hcnt;
         i2c->fs_scl_lcnt = max_speed_lcnt;
     }
 }
 
-// NOTE: devAddr is passed right-shifted by one
+// NOTE: devAddr is passed right-shifted by one because of an old API inherited by the STM32
 void RP2040I2C1Master::setTarget(unsigned char devAddr){
     // Check if lower 8 bits of the previous target device are the same as the provided one, shifted by 1
     if(((devAddr>>1) & 0xFF) != (i2c->tar & 0xFF)){
@@ -218,13 +185,20 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
     bool aborted = (i2c->raw_intr_stat & I2C_IC_RAW_INTR_STAT_TX_ABRT_BITS)
             && ((i2c->tx_abrt_source & (I2C_IC_TX_ABRT_SOURCE_ABRT_7B_ADDR_NOACK_BITS | I2C_IC_TX_ABRT_SOURCE_ABRT_TXDATA_NOACK_BITS)));
 
-    if(aborted) iprintf("Recv aborted. Reason: 0x%08lx\n", i2c->tx_abrt_source);
-
     (void) i2c->clr_intr;
 
     return !aborted;
 }
 
+/*
+ * This driver is not implemented with DMA support because the integration between
+ * the DMA and the I2C controller is poorly designed.
+ * Turns out that, even if the DMA were programmed to read and write just one byte
+ * at a time, the I2C controller would read 16 bits anyway: so if it were sending the
+ * n-th byte and the (n+1)th byte were odd, the write operation would magically become
+ * a read operation because it would interpret the LSB of the (n+1)th byte as bit 9
+ * of byte n, making it a read.
+ */
 bool RP2040I2C1Master::send(unsigned char address, const void *data, int len, bool sendStop)
 {
     setTarget(address);
@@ -234,8 +208,15 @@ bool RP2040I2C1Master::send(unsigned char address, const void *data, int len, bo
         i2c->data_cmd = dataToBeSent;
     }else{
         FastGlobalIrqLock lock;
+
+        /*
+         * Too high a number, and the interrupt would be fired too often;
+         * too low, and a restart could be issued between one byte and another because too much time
+         * would pass between the end of the FIFO and the interrupt, which would cause a restart
+         * on the next byte.
+         */
         i2c->tx_tl = 3;
-        i2c->intr_mask |= 1<<I2C_IC_INTR_MASK_M_TX_EMPTY_LSB;
+        i2c->intr_mask |= 1<<I2C_IC_INTR_MASK_M_TX_EMPTY_LSB; // Allow only one type of interrupt
         int curr = 0;
         while(true)
         {
@@ -259,8 +240,6 @@ bool RP2040I2C1Master::send(unsigned char address, const void *data, int len, bo
 
     bool aborted = (i2c->raw_intr_stat & I2C_IC_RAW_INTR_STAT_TX_ABRT_BITS)
             && ((i2c->tx_abrt_source & (I2C_IC_TX_ABRT_SOURCE_ABRT_7B_ADDR_NOACK_BITS | I2C_IC_TX_ABRT_SOURCE_ABRT_TXDATA_NOACK_BITS)));
-
-    if(aborted) iprintf("Send aborted. Reason: 0x%08lx\n", i2c->tx_abrt_source);
 
     //Clear all interrupts
     (void)i2c->clr_intr;
@@ -294,6 +273,7 @@ void RP2040I2C1Master::stop()
 
 void RP2040I2C1Master::IRQhandleDmaInterrupt()
 {
+    //GIL taken in recv function
     if(waiting)
     {
         waiting->IRQwakeup();
