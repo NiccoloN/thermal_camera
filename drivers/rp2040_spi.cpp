@@ -70,7 +70,7 @@ RP2040PL022DmaSpi::RP2040PL022DmaSpi(int number, unsigned int bitrate, bool spo,
         sck.function(Function::SPI0_CLK); sck.mode(Mode::OUTPUT); sck.fast();
         if (ce.isValid())
         {
-            //ce.function(Function::SPI); ce.mode(Mode::OUTPUT); ce.fast();
+            ce.function(Function::SPI); ce.mode(Mode::OUTPUT); ce.fast();
         }
     }
     spi->cr0=(0<<SPI_SSPCR0_SCR_LSB)
