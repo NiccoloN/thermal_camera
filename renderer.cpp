@@ -63,32 +63,59 @@ void ThermalImageRenderer::renderLoop(MLX90640Frame *processedFrame, short range
     {
         for(int x=0;x<nx-1;x++)
         {
-            c=interpolate2d(processedFrame,2*x,2*y,minTemp,range);
+            c=interpolate2d(2*x,2*y,minTemp,range);
             (this->*putPix)(2*y, 2*x, c);
-            c=interpolate2d(processedFrame,2*x+1,2*y,minTemp,range);
+            c=interpolate2d(2*x+1,2*y,minTemp,range);
             (this->*putPix)(2*y, 2*x+1, c);
         }
-        c=interpolate2d(processedFrame,62,2*y,minTemp,range);
+        c=interpolate2d(62,2*y,minTemp,range);
         (this->*putPix)(2*y, 62, c);
         for(int x=0;x<nx-1;x++)
         {
-            c=interpolate2d(processedFrame,2*x,2*y+1,minTemp,range);
+            c=interpolate2d(2*x,2*y+1,minTemp,range);
             (this->*putPix)(2*y+1, 2*x, c);
-            c=interpolate2d(processedFrame,2*x+1,2*y+1,minTemp,range);
+            c=interpolate2d(2*x+1,2*y+1,minTemp,range);
             (this->*putPix)(2*y+1, 2*x+1, c);
         }
-        c=interpolate2d(processedFrame,62,2*y+1,minTemp,range);
+        c=interpolate2d(62,2*y+1,minTemp,range);
         (this->*putPix)(2*y+1, 62, c);
     }
     for(int x=0;x<nx-1;x++)
     {
-        c=interpolate2d(processedFrame,2*x,46,minTemp,range);
+        c=interpolate2d(2*x,46,minTemp,range);
         (this->*putPix)(46, 2*x, c);
-        c=interpolate2d(processedFrame,2*x+1,46,minTemp,range);
+        c=interpolate2d(2*x+1,46,minTemp,range);
         (this->*putPix)(46, 2*x+1, c);
     }
-    c=interpolate2d(processedFrame,62,46,minTemp,range);
+    c=interpolate2d(62,46,minTemp,range);
     (this->*putPix)(46, 62, c);
+}
+
+void ThermalImageRenderer::filterFrame(MLX90640Frame *processedFrame)
+{
+    const int nx=MLX90640Frame::nx, ny=MLX90640Frame::ny;
+    for(int y=0;y<ny;y++)
+    {
+        for(int x=0;x<nx;x++)
+        {
+            int sum=0;
+            int weightSum=0;
+            for(int dy=-1;dy<=1;dy++)
+            {
+                const int yy=max(0,min(ny-1,y+dy));
+                const int wy=dy==0 ? 2 : 1;
+                for(int dx=-1;dx<=1;dx++)
+                {
+                    const int xx=max(0,min(nx-1,x+dx));
+                    const int wx=dx==0 ? 2 : 1;
+                    const int weight=wx*wy;
+                    sum+=weight*processedFrame->getTempAt(xx,yy);
+                    weightSum+=weight;
+                }
+            }
+            filteredTemperature[(nx-1-x)+y*nx]=roundedDivInt(sum,weightSum);
+        }
+    }
 }
 
 void ThermalImageRenderer::doRender(MLX90640Frame *processedFrame, bool small)
@@ -102,6 +129,7 @@ void ThermalImageRenderer::doRender(MLX90640Frame *processedFrame, bool small)
         minTemp=min(minTemp,processedFrame->temperature[i]);
         maxTemp=max(maxTemp,processedFrame->temperature[i]);
     }
+    filterFrame(processedFrame);
     short range=max<short>(minRange*processedFrame->scaleFactor,maxTemp-minTemp);
     if(small)
     {
@@ -124,26 +152,26 @@ void ThermalImageRenderer::doRender(MLX90640Frame *processedFrame, bool small)
     crosshairTemp=roundedDiv(crosshairTemp,processedFrame->scaleFactor);
 }
 
-Color ThermalImageRenderer::interpolate2d(MLX90640Frame *processedFrame, int x, int y, short m, short r)
+Color ThermalImageRenderer::interpolate2d(int x, int y, short m, short r)
 {
     if((x % 2)==0 && (y % 2)==0)
-        return pixMap(processedFrame->getTempAt(x/2,y/2),m,r);
+        return pixMap(filteredTempAt(x/2,y/2),m,r);
 
     if((x % 2)==0) //1d interp along y axis
     {
-        short t=processedFrame->getTempAt(x/2,y/2)+processedFrame->getTempAt(x/2,(y/2)+1);
+        short t=filteredTempAt(x/2,y/2)+filteredTempAt(x/2,(y/2)+1);
         return pixMap(roundedDiv(t,2),m,r);
     }
 
     if((y % 2)==0) //1d interp along x axis
     {
-        short t=processedFrame->getTempAt(x/2,y/2)+processedFrame->getTempAt((x/2)+1,y/2);
+        short t=filteredTempAt(x/2,y/2)+filteredTempAt((x/2)+1,y/2);
         return pixMap(roundedDiv(t,2),m,r);
     }
 
     //2d interpolation
-    short t=processedFrame->getTempAt(x/2,y/2)    +processedFrame->getTempAt((x/2)+1,y/2)
-           +processedFrame->getTempAt(x/2,(y/2)+1)+processedFrame->getTempAt((x/2)+1,(y/2)+1);
+    short t=filteredTempAt(x/2,y/2)    +filteredTempAt((x/2)+1,y/2)
+           +filteredTempAt(x/2,(y/2)+1)+filteredTempAt((x/2)+1,(y/2)+1);
     return pixMap(roundedDiv(t,4),m,r);
 }
 

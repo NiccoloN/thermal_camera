@@ -94,11 +94,12 @@ public:
 
 private:
     void doRender(MLX90640Frame *processedFrame, bool small);
+    void filterFrame(MLX90640Frame *processedFrame);
 
     template<void (ThermalImageRenderer::*putPix)(int x, int y, mxgui::Color c)>
     inline void renderLoop(MLX90640Frame *processedFrame, short range);
 
-    static inline mxgui::Color interpolate2d(MLX90640Frame *processedFrame, int x, int y, short m, short r);
+    inline mxgui::Color interpolate2d(int x, int y, short m, short r);
 
     static inline mxgui::Color pixMap(short t, short m, short r);
 
@@ -110,6 +111,17 @@ private:
     {
         if(a>0) return (a+b/2)/b;
         return (a-b/2)/b;
+    }
+
+    static inline short roundedDivInt(int a, int b)
+    {
+        if(a>0) return static_cast<short>((a+b/2)/b);
+        return static_cast<short>((a-b/2)/b);
+    }
+
+    inline short filteredTempAt(int x, int y) const
+    {
+        return filteredTemperature[(MLX90640Frame::nx-1-x)+y*MLX90640Frame::nx];
     }
 
     inline void putPixelLarge(int y, int x, mxgui::Color c)
@@ -129,6 +141,7 @@ private:
         mxgui::Color irImage[94][126];     // Heavy object! ~23KByte
         mxgui::Color irImageSmall[47][63];
     };
+    short filteredTemperature[MLX90640Frame::nx*MLX90640Frame::ny];
     short minTemp, maxTemp, crosshairTemp;
     const short minRange=15;
 };
