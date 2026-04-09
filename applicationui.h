@@ -477,13 +477,14 @@ void ApplicationUI<IOHandler>::drawFrame(mxgui::DrawingContext& dc)
     }
     if (frame.get()!=nullptr)
     {
-        #if 0 && defined(_MIOSIX)
+        #define LOG_PROFILING
+        #if defined(LOG_PROFILING) && defined(_MIOSIX)
         auto t1 = miosix::getTime();
         #endif
         bool smallCached=(state == Menu); //Cache now if the main thread changes it
         if(smallCached==false) renderer->render(frame.get());
         else renderer->renderSmall(frame.get());
-        #if 0 && defined(_MIOSIX)
+        #if defined(LOG_PROFILING) && defined(_MIOSIX)
         auto t2 = miosix::getTime();
         #endif
         dc.setTextColor(std::make_pair(mxgui::white,mxgui::black));
@@ -509,9 +510,12 @@ void ApplicationUI<IOHandler>::drawFrame(mxgui::DrawingContext& dc)
             drawTemperature(dc,mxgui::Point(96,25),mxgui::Point(112,33),smallFont,
                             renderer->minTemperature());
         }
-        #if 0 && defined(_MIOSIX)
+        #if defined(LOG_PROFILING) && defined(_MIOSIX)
         auto t3 = miosix::getTime();
-        iprintf("render = %lld draw = %lld\n",t2-t1,t3-t2);
+        const long long renderUs=(t2-t1)/1000;
+        const long long drawUs=(t3-t2)/1000;
+        iprintf("[profile] render=%lld.%03lld ms draw=%lld.%03lld ms\n",
+                renderUs/1000, renderUs%1000, drawUs/1000, drawUs%1000);
         #endif
         //process = 78ms render = 1.9ms draw = 15ms 8Hz scaled short DMA UI
     }

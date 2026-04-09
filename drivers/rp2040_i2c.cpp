@@ -167,7 +167,7 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
                                 |(datasz<<DMA_CH1_CTRL_TRIG_DATA_SIZE_LSB)
                                 |DMA_CH1_CTRL_TRIG_HIGH_PRIORITY_BITS
                                 |DMA_CH1_CTRL_TRIG_EN_BITS;
-                                
+  iprintf("a %d %d %d", txDmaCh, finisherDmaCh, rxDmaCh);
     {
         FastGlobalIrqLock lock;
         dma_hw->multi_channel_trigger=(1U<<txDmaCh)|(1U<<rxDmaCh);
@@ -181,6 +181,7 @@ bool RP2040I2C1Master::recv(unsigned char address, void *data, int len)
         dma_hw->ch[finisherDmaCh].al1_ctrl=0;
         dma_hw->ch[rxDmaCh].al1_ctrl=0;
     }
+  iprintf("b\n");
 
     bool aborted = (i2c->raw_intr_stat & I2C_IC_RAW_INTR_STAT_TX_ABRT_BITS)
             && ((i2c->tx_abrt_source & (I2C_IC_TX_ABRT_SOURCE_ABRT_7B_ADDR_NOACK_BITS | I2C_IC_TX_ABRT_SOURCE_ABRT_TXDATA_NOACK_BITS)));

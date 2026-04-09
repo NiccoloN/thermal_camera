@@ -60,6 +60,7 @@ Application::Application(Display& display)
       sensor(make_unique<MLX90640>(i2c.get()))
       //usb(make_unique<USBCDC>(Priority()))
 {
+    printf("-------> %p\n", i2c.get());
     loadOptions(&ui.options,sizeof(ui.options));
     if(sensor->setRefresh(refreshFromInt(ui.options.frameRate))==false)
         puts("Error setting framerate");
@@ -71,7 +72,7 @@ void Application::run()
     //High priority for sensor read, prevents I2C reads from starving
     sensorThread = Thread::create(Application::sensorThreadMainTramp, 2048U, Priority(DEFAULT_PRIORITY+1), static_cast<void*>(this), Thread::JOINABLE);
     //Low priority for processing, prevents display writes from starving
-    Thread *processThread = Thread::create(Application::processThreadMainTramp, 2048U, Priority(DEFAULT_PRIORITY-1), static_cast<void*>(this), Thread::JOINABLE);
+    Thread *processThread = Thread::create(Application::processThreadMainTramp, 8192U, Priority(DEFAULT_PRIORITY-1), static_cast<void*>(this), Thread::JOINABLE);
 
     //Drop first frame before starting the render thread
     MLX90640Frame *processedFrame=nullptr;
@@ -186,20 +187,25 @@ void *Application::processThreadMainTramp(void *p)
 
 void Application::processThreadMain()
 {
-    
+    #define LOG_PROFILING
     while(ui.lifecycle != UI::Quit)
     {
         MLX90640RawFrame *rawFrame=nullptr;
         rawFrameQueue.get(rawFrame);
         if(rawFrame==nullptr) continue; //Happens on shutdown
-        //auto t1=getTime();
+        #if defined(LOG_PROFILING) && defined(_MIOSIX)
+        auto t1=getTime();
+        #endif
         auto *processedFrame=new MLX90640Frame;
         sensor->processFrame(rawFrame,processedFrame,ui.options.emissivity);
         delete rawFrame;
         processedFrameQueue.put(processedFrame);
         //usbOutputQueue.put(rawFrame);
-        //auto t2=getTime();
-        //iprintf("process = %lld\n",t2-t1);
+        #if defined(LOG_PROFILING) && defined(_MIOSIX)
+        auto t2=getTime();
+        const long long processNs=(t2-t1)/1000;
+        iprintf("[profile] process=%lld.%03lld ms\n", processNs/1000, processNs%1000);
+        #endif
     }
     //iprintf("processThread min free stack %d\n",
       //      MemoryProfiling::getAbsoluteFreeStack());

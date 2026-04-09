@@ -82,15 +82,5 @@ public:
      * \param emissivity the user-selected emissivity value, that is necessary
      * to compute the temperatures
      */
-    void process(MLX90640Frame *output, paramsMLX90640& params, float emissivity) const
-    {
-        const float taShift=8.f; //Default shift for MLX90640 in open air
-        for(int i=0;i<2;i++)
-        {
-            float vdd=MLX90640_GetVdd(this->subframe[i],&params);
-            float Ta=MLX90640_GetTa(this->subframe[i],&params,vdd);
-            float Tr=Ta-taShift; //Reflected temperature based on the sensor ambient temperature
-            MLX90640_CalculateToShort(this->subframe[i],&params,emissivity,vdd,Ta,Tr,output->temperature);
-        }
-    }
+    void process(MLX90640Frame *output, paramsMLX90640& params, float emissivity) const;
 };

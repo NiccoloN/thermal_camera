@@ -181,18 +181,26 @@ enum class ExtraChecks { None, Application, Kernel };
 constexpr auto extraChecks=ExtraChecks::None;
 
 /// \def WITH_SLEEP
-/// Enable sleep support. If enabled, the idle thread will stop the CPU whenever
-/// no ready thread exists to save power.
+/// Enable power saving sleep support. If enabled, the idle thread will use the
+/// architecturally provided machine instruction to stop the CPU whenever no
+/// ready thread exists, to save power.
+/// Disabling this option <b>does not</b> disable the possibility for threads
+/// to sleep. Application code will not notice the difference with or without
+/// this option. This option will only change the CPU energy consumption when
+/// threads are sleeping.
 /// In general, you should keep this option enabled, the only reason to disable
 /// this option is that on some architectures debuggers lose communication with
-/// the device if it enters sleep mode, so to use debugging it is necessary to
-/// disable sleep support. For this reason, the option used to be called JTAG_DISABLE_SLEEP
+/// the device if it enters sleep mode. On these architectures, you can disable
+/// this option during debug builds and enable it again in release builds. For
+/// this reason, the option used to be called JTAG_DISABLE_SLEEP
 #define WITH_SLEEP
 
 /// \def WITH_DEEP_SLEEP 
-/// Adds interfaces and required variables to support entering deep sleep and
-/// thus turning off also peripherals when possible. Saves much more energy but
-/// requires device drivers to support this option.
+/// Adds interfaces and required variables to allow the idle thread to
+/// autonomously enter the hardware-provided deep sleep state and thus achieve
+/// greater energy saving by turning off also clocks and peripherals when
+/// possible. Requires device drivers to support this option. Not all chips and
+/// boards support this.
 //#define WITH_DEEP_SLEEP
 
 #if defined(WITH_DEEP_SLEEP) && !defined(WITH_SLEEP)
@@ -209,7 +217,7 @@ const unsigned int STACK_IDLE=256;
 /// Default stack size for pthread_create.
 /// The chosen value is enough to call C standard library functions
 /// such as printf/fopen which are stack-heavy (MUST be divisible by 4)
-const unsigned int STACK_DEFAULT_FOR_PTHREAD=2048;
+const unsigned int STACK_DEFAULT_FOR_PTHREAD=4096;
 
 /// Maximum size of the RAM image of a process. If a program requires more
 /// the kernel will not run it (MUST be divisible by 4)
@@ -286,11 +294,12 @@ const unsigned int MAX_TIME_SLICE=1000000;
 #endif //SCHED_TYPE_PRIORITY
 
 /// \def OS_TIMER_MODEL_UNIFIED
-/// If this configuration option is selected, the kernel uses a single timer
-/// for both preemption and timekeeping (getTime() and Thread::nanoSleep()).
-/// If this option is not selected, the kernel uses one timer for timekeeping
-/// for the entire OS plus a separate timer for each CPU core for context
-/// switches. In single-core microcontrollers, two timers are needed.
+/// Replace the new 1+N high-resolution timing subsystem, also called separate
+/// timer model with the old high-resolution timing subsystem, called unified.
+/// This only makes sense for boards that have a low number of hardware timers,
+/// as the new timer model significantly improves the scheduler perofrmance, see
+/// the paper "Efficient Design of High-Resolution Timekeeping in Real-Time
+/// Operating Systems"
 //#define OS_TIMER_MODEL_UNIFIED
 
 /// Select the implementation of pthread_mutex_t. Three options:
@@ -342,10 +351,10 @@ constexpr auto pthreadMutexProtocolOverride=PthreadMutexProtocol::DYNAMIC;
 /// Throwing a standard C++ exception, so a catch(...) can stop a pthread_exit()
 /// which is imho neither better nor worse than Linux.
 /// Reference: https://udrepper.livejournal.com/21541.html
-//#define WITH_PTHREAD_EXIT
+#define WITH_PTHREAD_EXIT
 
 /// Enable support for pthread_key_create/pthread_key_delete/pthread_getspecific
-//#define WITH_PTHREAD_KEYS
+#define WITH_PTHREAD_KEYS
 
 /// Maximum number of concurrently existing pthread keys
 const unsigned int MAX_PTHREAD_KEYS=2;
@@ -368,13 +377,10 @@ const unsigned int WATERMARK_FILL=0xaaaaaaaa;
 const unsigned int STACK_FILL=0xbbbbbbbb;
 
 // Compiler version checks
-#if !defined(_MIOSIX_GCC_PATCH_MAJOR) || \
-        (_MIOSIX_GCC_PATCH_MAJOR < 3) || \
-        (_MIOSIX_GCC_PATCH_MAJOR == 3 && _MIOSIX_GCC_PATCH_MINOR < 4)
+#if !defined(_MIOSIX_GCC_PATCH_MAJOR) || (_MIOSIX_GCC_PATCH_MAJOR < 4)
 #error "You are using a too old or unsupported compiler. Get the latest one from https://miosix.org/wiki/index.php?title=Miosix_Toolchain"
 #endif
-#if _MIOSIX_GCC_PATCH_MAJOR > 4 || \
-        (_MIOSIX_GCC_PATCH_MAJOR == 4 && _MIOSIX_GCC_PATCH_MINOR > 0)
+#if _MIOSIX_GCC_PATCH_MAJOR > 4
 #warning "You are using a too new compiler, which may not be supported"
 #endif
 

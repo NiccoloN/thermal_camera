@@ -40,6 +40,10 @@ namespace miosix {
  * \{
  */
 
+constexpr unsigned int oscillatorFrequency=14745600;
+constexpr unsigned int cpuFrequency=oscillatorFrequency*4; //Supported x1, x2, x4
+constexpr unsigned int peripheralFrequency=cpuFrequency/4; //Can divide by 1, 2, 4
+
 /// Serial port baudrate
 const unsigned int SERIAL_PORT_SPEED=115200;
 
@@ -55,9 +59,6 @@ const unsigned int AUX_SERIAL_SPEED=9600;
 /// LPC2138 has 32KB of RAM so there is room for a big 4K stack.
 const unsigned int MAIN_STACK_SIZE=4*1024;
 
-/// \internal Clock frequency of hardware timer, hardware specific data
-const unsigned int TIMER_CLOCK=14745600;
-
 /// \def WITH_RTC
 /// Uncomment to enable support for RTC. Time-related functions depend on it.
 /// By default it is defined (RTC is active)
@@ -68,6 +69,14 @@ const unsigned int TIMER_CLOCK=14745600;
 /// the button for two seconds. Comment if you want instant resume.
 /// By default it is not defined (no wakeup delay)
 //#define WAKEUP_DELAY
+
+/// \def OS_TIMER_MODEL_UNIFIED
+/// Overrides the timer model choice in miosix_settings.h. The LPC2138 provides
+/// only 2 hardware timers, so while the separate timer model can be
+/// implemented, it would use all the avavilable timers leaving none to
+/// applications. For this reason, we only support the unified timer model
+/// for this chip.
+#define OS_TIMER_MODEL_UNIFIED
 
 /**
  * \}

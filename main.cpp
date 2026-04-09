@@ -41,6 +41,14 @@ using namespace std;
 using namespace mxgui;
 using namespace miosix;
 
+#ifndef THERMAL_CAMERA_FRAME_PROCESS_VARIANT
+#define THERMAL_CAMERA_FRAME_PROCESS_VARIANT 0
+#endif
+
+#define THERMAL_CAMERA_FRAME_PROCESS_SERIAL 0
+#define THERMAL_CAMERA_FRAME_PROCESS_OPENMP 1
+#define THERMAL_CAMERA_FRAME_PROCESS_SYCL 2
+
 namespace mxgui {
 void registerDisplayHook(DisplayManager& dm)
 {
@@ -60,8 +68,8 @@ int main()
 {
     initializeBoard();
     
-    #ifdef WITH_CPU_TIME_COUNTER
-    Thread *profiler = Thread::create(profilerMain, 2048U, Priority(0), nullptr, Thread::DETACHED);
+    #if defined(WITH_CPU_TIME_COUNTER) && THERMAL_CAMERA_FRAME_PROCESS_VARIANT != THERMAL_CAMERA_FRAME_PROCESS_SYCL
+    Thread *profiler = Thread::create(profilerMain, 4096U, Priority(0), nullptr, Thread::DETACHED);
     #endif
 
     auto& display=DisplayManager::instance().getDisplay();
@@ -74,7 +82,7 @@ int main()
     }
     
     display.turnOff();
-    #ifdef WITH_CPU_TIME_COUNTER
+    #if defined(WITH_CPU_TIME_COUNTER) && THERMAL_CAMERA_FRAME_PROCESS_VARIANT != THERMAL_CAMERA_FRAME_PROCESS_SYCL
     profiler->terminate();
     #endif
     shutdownBoard();

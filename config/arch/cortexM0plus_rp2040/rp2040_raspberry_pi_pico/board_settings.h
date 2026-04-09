@@ -63,7 +63,7 @@ constexpr unsigned int peripheralFrequency=cpuFrequency;
 const unsigned int defaultSerial=0; // 0 or 1
 const unsigned int defaultSerialSpeed=115200;
 const bool defaultSerialFlowctrl=false;
-const bool defaultSerialDma=true;
+const bool defaultSerialDma=false;
 // Pin mapping for usart0, uncomment if defaultSerial==0
 using defaultSerialTxPin = Gpio<P0, 0>;
 using defaultSerialRxPin = Gpio<P0, 1>;

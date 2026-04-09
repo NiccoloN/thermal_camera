@@ -7,3 +7,7 @@
 [submodule "tinyusb/tinyusb"]
 	path = tinyusb/tinyusb
 	url = https://github.com/hathach/tinyusb.git
+[submodule "AdaptiveCpp-Embedded"]
+	path = AdaptiveCpp-Embedded
+	url = https://github.com/NiccoloN/AdaptiveCpp-Embedded.git
+	branch = develop
