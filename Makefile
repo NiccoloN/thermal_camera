@@ -38,7 +38,7 @@ images/usbicon.png
 
 SRC2 := $(IMG:.png=.cpp)
 # Images should be compiled first to prevent missing includes
-SRC := $(SRC2) $(SRC)
+SRC := $(SRC2)
 %.cpp : %.png
 	./mxgui/_tools/code_generators/build/pngconverter --in $< --depth 16
 
@@ -70,7 +70,8 @@ SUBDIRS += mxgui
 ##
 ROMFS_DIR :=
 
-all: $(if $(ROMFS_DIR), image, main)
+#all: $(if $(ROMFS_DIR), image, main)
+all: $(SRC2)
 
 main: $(OBJ) all-recursive
 	$(ECHO) "[LD  ] main.elf"
