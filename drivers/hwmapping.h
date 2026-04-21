@@ -36,17 +36,17 @@ using oled_sck    = Gpio<P0,6>;  //SPI0
 using oled_mosi   = Gpio<P0,7>;  //SPI0
 using oled_cs     = Gpio<P0,9>;
 using oled_dc     = Gpio<P0,4>;
-using oled_res    = Gpio<P0,14>;
+using oled_res    = NullGpio;
 
 //Sensor
 using sen_scl     = Gpio<P0,3>;  //I2C1
 using sen_sda     = Gpio<P0,2>;  //I2C1
 
 //Buttons and power management
-using up_btn      = Gpio<P0,10>;
-using on_btn      = Gpio<P0,11>;
-using keep_on     = Gpio<P0,12>;
-using vbatt_sense = Gpio<P0,13>;  
+using up_btn      = Gpio<P0,19>;
+using on_btn      = Gpio<P0,18>;
+using keep_on     = NullGpio;
+using vbatt_sense = NullGpio;
 
 //USB
 /*

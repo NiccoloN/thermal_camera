@@ -143,10 +143,10 @@ spiController(
     15000000,
     true,
     true,
-    Gpio<P0, 15>::getPin(),
+    NullGpio::getPin(),
     oled_mosi::getPin(),
     oled_sck::getPin(),
-    Gpio<P0, 16>::getPin()
+    NullGpio::getPin()
 )
 {
     cs::function(Function::GPIO);
