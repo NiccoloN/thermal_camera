@@ -33,7 +33,7 @@
 using namespace std;
 using namespace miosix;
 
-MRAM::MRAM() : spi(1,20*1000000,false,false,mram_miso::getPin(),mram_mosi::getPin(),mram_sck::getPin(),GpioPin())
+MRAM::MRAM() : spi(1,40*1000000,false,false,mram_miso::getPin(),mram_mosi::getPin(),mram_sck::getPin(),GpioPin())
 {
     iprintf("MRAM\n");
     mram_cs::function(Function::GPIO);
@@ -63,26 +63,34 @@ MRAM::MRAM() : spi(1,20*1000000,false,false,mram_miso::getPin(),mram_mosi::getPi
     for(int i=0;i<5;i++)
         iprintf("status%d=0x%x\n",i,readStatus(i));
 
-    const unsigned char testWrite[]="MRAM testing message!!";
-    const unsigned char testWrite2[23]={0};
-    unsigned char testRead[23];
-    static_assert(sizeof(testRead)==sizeof(testWrite)&&sizeof(testRead)==sizeof(testWrite2));
-    read(0,testRead,sizeof(testRead));
-    for(unsigned i=0;i<sizeof(testRead);i++) iprintf("%02x ",testRead[i]);
-    iprintf("\n");
-    write(0,testWrite2,sizeof(testWrite2));
-    write(0,testWrite,sizeof(testWrite));
-    read(0,testRead,sizeof(testRead));
-    for(unsigned i=0;i<sizeof(testRead);i++) iprintf("%02x ",testRead[i]);
-    iprintf("\n");
-    bool ok=true;
-    for(unsigned i=0;i<sizeof(testRead);i++) ok&=testRead[i]==testWrite[i];
-    if(ok) iprintf("test passed\n"); else iprintf("test failed\n");
+    constexpr int testSize=256, testNum=10;
+    int failures=0;
+    unsigned char testWrite[testSize];
+    unsigned char testRead[testSize];
+    for(int i=0;i<testNum;i++)
+    {
+        iprintf("testing MRAM; test %d\n", i);
+        for(int j=0;j<testSize;j++) testWrite[j]=rand()%256;
+        write(0,testWrite,testSize);
+        read(0,testRead,testSize);
+        for(int j=0;j<testSize;j++) if(testWrite[j]!=testRead[j])
+        {
+            iprintf("failed at index %d (%02x read != %02x written)\n",j,testRead[j],testWrite[j]);
+            failures++;
+        }
+        if(failures!=0)
+        {
+            iprintf("mram test failed\n");
+            break;
+        }
+    }
+
 }
 
 bool MRAM::write(unsigned int addr, const void *data, int size)
 {
     if(addr>=this->size() || addr+size>this->size()) return false;
+    spi.setBitrate(108000000);
     writeEnable();
     mram_cs::low();
     spi.sendRecv(0x02);
@@ -91,6 +99,7 @@ bool MRAM::write(unsigned int addr, const void *data, int size)
     spi.sendRecv(addr & 0xff);
     spi.send(reinterpret_cast<const unsigned char *>(data),size);
     mram_cs::high();
+    spi.setBitrate(40000000);
     return true;
 }
 
@@ -102,8 +111,6 @@ bool MRAM::read(unsigned int addr, void *data, int size)
     spi.sendRecv((addr>>16) & 0xff);
     spi.sendRecv((addr>>8) & 0xff);
     spi.sendRecv(addr & 0xff);
-    //spi.sendRecv(0xff); // latency, only fast read 0x0b
-    //spi.sendRecv(0xff); // latency
     spi.recv(reinterpret_cast<unsigned char *>(data),size);
     mram_cs::high();
     return true;
