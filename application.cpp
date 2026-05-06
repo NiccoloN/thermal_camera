@@ -55,7 +55,7 @@ using namespace mxgui;
 //
 
 Application::Application(Display& display)
-    : display(display), ui(*this, display, ButtonState(1^up_btn::value(),on_btn::value())),
+    : display(display), ui(*this, display, ButtonState(up_btn::value(),on_btn::value())),
       i2c(make_unique<RP2040I2C1Master>(sen_sda::getPin(),sen_scl::getPin(),1000)),
       sensor(make_unique<MLX90640>(i2c.get()))
       //usb(make_unique<USBCDC>(Priority()))
@@ -113,8 +113,7 @@ void Application::run()
 
 ButtonState Application::checkButtons()
 {
-    // up button is inverted
-    return ButtonState(1^up_btn::value(),on_btn::value());
+    return ButtonState(up_btn::value(),on_btn::value());
 }
 
 BatteryLevel Application::checkBatteryLevel()

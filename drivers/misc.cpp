@@ -38,7 +38,7 @@ void initializeBoard()
         FastGlobalIrqLock dLock;
         //RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
         //RCC_SYNC();
-        up_btn::mode(Mode::INPUT_PULL_UP);
+        up_btn::mode(Mode::INPUT_PULL_DOWN);
         on_btn::mode(Mode::INPUT_PULL_DOWN);
         keep_on::mode(Mode::OUTPUT);
         keep_on::high();
