@@ -97,6 +97,7 @@ set(APP_SRCS
     drivers/rp2040_spi.cpp
     drivers/rp2040_i2c.cpp
     drivers/arm_pl022_spi.cpp
+    drivers/mram.cpp
     images/batt0icon.cpp
     images/batt25icon.cpp
     images/batt50icon.cpp

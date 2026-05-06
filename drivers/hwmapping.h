@@ -56,6 +56,12 @@ using usb_dm_2    = Gpio<GPIOC_BASE,8>;
 using usb_dp_2    = Gpio<GPIOC_BASE,7>;
 */
 
+//MRAM
+using mram_sck   = Gpio<P0,10>; //SPI1
+using mram_mosi  = Gpio<P0,11>; //SPI1
+using mram_miso  = Gpio<P0,12>; //SPI1
+using mram_cs    = Gpio<P0,13>; //SPI1
+
 //FLASH
 /*
 using flash_cs    = Gpio<GPIOB_BASE,12>; //SPI2

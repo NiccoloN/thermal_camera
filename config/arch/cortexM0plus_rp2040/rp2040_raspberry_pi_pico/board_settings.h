@@ -76,7 +76,7 @@ using defaultSerialCtsPin = Gpio<P0, 14>; // Gpio<P0, 2> conflicts with SD defau
 //using defaultSerialCtsPin = Gpio<P0, 6>;
 
 // SD card
-const bool enableSdCard=true;
+const bool enableSdCard=false;
 // Dma and NoDma use the SPI device and have pin constraints, Software does not
 // The NoDma driver is faster, the Dma driver is slightly slower but uses way
 // less CPU, and the Software driver is the slowest but can be used if other

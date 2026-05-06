@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2022 by Terraneo Federico and Daniele Cattaneo          *
+ *   Copyright (C) 2012-2022 by Terraneo Federico                          *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -27,71 +27,60 @@
 
 #pragma once
 
-#include <memory>
-#include <miosix.h>
-#include <mxgui/display.h>
-#include "drivers/rp2040_i2c.h"
-#include <drivers/mlx90640.h>
-#include <drivers/hwmapping.h>
-//#include <drivers/usb_tinyusb.h>
-#include "renderer.h"
-#include "applicationui.h"
-#include "drivers/mram.h"
+#include <mutex>
+#include "rp2040_spi.h"
+#include "hwmapping.h"
 
 /**
- * Main application class. Decorates ApplicationUI with hardware I/O code.
+ * Class to access a MRAM memory
  */
-class Application: IOHandlerBase
+class MRAM
 {
 public:
+    MRAM();
     
-    Application(mxgui::Display& display);
-
-    void run();
-
-    ButtonState checkButtons();
-
-    BatteryLevel checkBatteryLevel();
+    /**
+     * \return the MRAM's size in bytes
+     */
+    unsigned int size() const { return ramSize; }
     
-    //bool checkUSBConnected();
-
-    void setPause(bool pause);
-
-    void saveOptions(ApplicationOptions& options);
+    /**
+     * Write a block of data into the MRAM.
+     * \param addr start address into the MRAM where the data block will be
+     * written
+     * \param data data block
+     * \param size data block size
+     * \return true on success, false on failure
+     */
+    bool write(unsigned int addr, const void *data, int size);
+    
+    /**
+     * Read a block of data from the MRAM
+     * \param addr start address into the MRAM where the data block will be read
+     * \param data data block
+     * \param size data block size
+     * \return true on success, false on failure
+     */
+    bool read(unsigned int addr, void *data, int size);
     
 private:
-    Application(const Application&)=delete;
-    Application& operator=(const Application&)=delete;
+    MRAM(const MRAM&)=delete;
+    MRAM& operator= (const MRAM&)=delete;
 
-    using UI = ApplicationUI<Application>;
+    /**
+     * Send the write enable command, required before writing/erasing.
+     * Requires the mutex to be locked.
+     */
+    void writeEnable();
+
+    /**
+     * Read one of the status registers.
+     */
+    unsigned char readStatus(int reg=0);
+
+    void setConfig(unsigned char c1, unsigned char c2,
+                   unsigned char c3, unsigned char c4);
     
-    static void *sensorThreadMainTramp(void *p);
-    inline void sensorThreadMain();
-    
-    static void *processThreadMainTramp(void *p);
-    inline void processThreadMain();
-
-    static void *renderThreadMainTramp(void *p);
-    inline void renderThreadMain();
-
-    //static void *usbThreadMainTramp(void *p);
-    //inline void usbThreadMain();
-
-    //static void *usbFrameOutputThreadMainTramp(void *p);
-    //inline void usbFrameOutputThreadMain();
-
-    miosix::Thread *sensorThread;
-    mxgui::Display& display;
-    UI ui;
-    int prevBatteryVoltage=42; //4.2V
-    std::unique_ptr<miosix::RP2040I2C1Master> i2c;
-    std::unique_ptr<MLX90640> sensor;
-    //std::unique_ptr<USBCDC> usb;
-    miosix::Queue<MLX90640RawFrame*, 1> rawFrameQueue;
-    miosix::Queue<MLX90640Frame*, 1> processedFrameQueue;
-    MRAM mram;
-    //volatile bool usbDumpRawFrames=false;
-    //miosix::Queue<MLX90640RawFrame*, 1> usbOutputQueue;
-
-    //const unsigned long long usbWriteTimeout = 50ULL * 1000000ULL; // 50ms
+    miosix::RP2040PL022DmaSpi spi;
+    unsigned int ramSize;
 };
